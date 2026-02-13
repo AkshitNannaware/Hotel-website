@@ -1,4 +1,7 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const Booking = require('../../models/Booking');
 const Room = require('../../models/Room');
 const Service = require('../../models/Service');
@@ -9,6 +12,34 @@ const { requireDb } = require('../../middleware/requireDb');
 const router = express.Router();
 
 router.use(requireDb, requireAuth, requireAdmin);
+
+// Setup multer for room image uploads
+const roomImagesDir = path.join(__dirname, '..', '..', '..', 'uploads', 'rooms');
+fs.mkdirSync(roomImagesDir, { recursive: true });
+
+const roomImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, roomImagesDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '';
+    const safeExt = ext.toLowerCase();
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `room-${unique}${safeExt}`);
+  },
+});
+
+const uploadRoomImages = multer({
+  storage: roomImageStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error('Invalid file type. Only JPEG, PNG, and WebP images are allowed.'));
+    }
+    cb(null, true);
+  },
+});
 
 // GET /api/admin/stats
 router.get('/stats', async (req, res, next) => {
@@ -78,6 +109,42 @@ router.delete('/rooms/:id', async (req, res, next) => {
       return res.status(404).json({ message: 'Room not found' });
     }
     res.json({ message: 'Room deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/rooms/:id/upload-images - Upload room images
+router.post('/rooms/:id/upload-images', uploadRoomImages.array('images', 10), async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No images uploaded' });
+    }
+
+    const room = await Room.findById(req.params.id);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // Generate URLs for uploaded images
+    const imageUrls = req.files.map((file) => `/uploads/rooms/${file.filename}`);
+    
+    // Replace default Unsplash images with uploaded ones, otherwise append
+    const hasDefaultImage = room.images.some(img => img.includes('unsplash.com'));
+    if (hasDefaultImage) {
+      // Replace default image with uploaded images
+      room.images = imageUrls;
+    } else {
+      // Append to existing custom images
+      room.images = [...room.images, ...imageUrls];
+    }
+    await room.save();
+
+    res.json({
+      message: 'Images uploaded successfully',
+      images: imageUrls,
+      room,
+    });
   } catch (err) {
     next(err);
   }
@@ -170,15 +237,20 @@ router.patch('/bookings/:id/id-verified', async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid ID verification status' });
     }
 
+    const existingBooking = await Booking.findById(req.params.id);
+    if (!existingBooking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (existingBooking.idVerified === 'approved' && idVerified !== 'approved') {
+      return res.status(400).json({ message: 'Approved ID verification cannot be changed' });
+    }
+
     const booking = await Booking.findByIdAndUpdate(
       req.params.id,
       { idVerified },
       { new: true, runValidators: true }
     );
-
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
 
     res.json(booking);
   } catch (err) {

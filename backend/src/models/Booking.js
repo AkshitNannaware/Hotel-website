@@ -34,6 +34,7 @@ const bookingSchema = new mongoose.Schema(
     idProofType: { type: String, default: '' },
     idProofUploadedAt: { type: Date },
     bookingDate: { type: Date, default: Date.now },
+    cancelledAt: { type: Date },
   },
   { timestamps: true }
 );

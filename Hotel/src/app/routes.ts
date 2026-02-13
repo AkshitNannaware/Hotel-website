@@ -17,6 +17,9 @@ import CheckIn from './pages/CheckIn';
 import CheckOut from './pages/CheckOut';
 import Contact from './pages/Contact';
 import ForgotPassword from './pages/ForgotPassword';
+import About from './pages/About';
+import BookingDetails from './pages/BookingDetails';
+import AdminNewsletter from './pages/AdminNewsletter';
 
 export const router = createBrowserRouter([
   {
@@ -31,9 +34,11 @@ export const router = createBrowserRouter([
       { path: 'services', Component: Services },
       { path: 'book-service/:serviceId', Component: ServiceBooking },
       { path: 'profile', Component: Profile },
+      { path: 'booking-details/:bookingId', Component: BookingDetails },
       { path: 'checkin/:bookingId', Component: CheckIn },
       { path: 'checkout/:bookingId', Component: CheckOut },
       { path: 'contact', Component: Contact },
+      { path: 'about', Component: About },
     ],
   },
   {
@@ -59,5 +64,9 @@ export const router = createBrowserRouter([
   {
     path: '/admin',
     Component: AdminDashboard,
+  },
+  {
+    path: '/admin/newsletters',
+    Component: AdminNewsletter,
   },
 ]);

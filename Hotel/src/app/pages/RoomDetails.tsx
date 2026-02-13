@@ -12,7 +12,12 @@ const RoomDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { setCurrentBooking } = useBooking();
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_BASE = (import.meta.env?.VITE_API_URL as string | undefined) || 'http://localhost:5000';
+
+  const resolveImageUrl = (imageUrl: string) => {
+    if (!imageUrl) return '';
+    return imageUrl.startsWith('/uploads/') ? `${API_BASE}${imageUrl}` : imageUrl;
+  };
   const [room, setRoom] = useState<Room | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -176,9 +181,9 @@ const RoomDetails = () => {
 
         {/* Image Gallery */}
         <div className="mb-8">
-          <div className="relative h-[500px] rounded-3xl overflow-hidden bg-stone-200">
+          <div className="relative h-[260px] sm:h-[360px] lg:h-[500px] rounded-3xl overflow-hidden bg-stone-200">
             <img
-              src={room.images[currentImageIndex]}
+              src={resolveImageUrl(room.images[currentImageIndex])}
               alt={room.name}
               className="w-full h-full object-cover"
             />
@@ -222,7 +227,7 @@ const RoomDetails = () => {
           </div>
 
           {room.images.length > 1 && (
-            <div className="grid grid-cols-4 gap-3 mt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
               {room.images.slice(0, 4).map((img, idx) => (
                 <button
                   key={idx}
@@ -231,7 +236,7 @@ const RoomDetails = () => {
                     idx === currentImageIndex ? 'ring-2 ring-stone-900' : ''
                   }`}
                 >
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img src={resolveImageUrl(img)} alt="" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -242,7 +247,7 @@ const RoomDetails = () => {
           {/* Room Details */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl p-8 shadow-sm mb-6">
-              <div className="flex justify-between items-start mb-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
                 <div>
                   <h1 className="text-4xl mb-2">{room.name}</h1>
                   <p className="text-xl text-stone-600">{room.type} Room</p>
@@ -253,7 +258,7 @@ const RoomDetails = () => {
                 </div>
               </div>
 
-              <div className="flex gap-6 mb-6 pb-6 border-b border-stone-200">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 mb-6 pb-6 border-b border-stone-200">
                 <div className="flex items-center gap-2 text-stone-700">
                   <Users className="w-5 h-5" />
                   <span>Up to {room.maxGuests} guests</span>
@@ -297,7 +302,7 @@ const RoomDetails = () => {
 
           {/* Booking Card */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-3xl p-6 shadow-lg sticky top-4">
+            <div className="bg-white rounded-3xl p-6 shadow-lg lg:sticky lg:top-4">
               <h3 className="text-xl mb-6">Book This Room</h3>
 
               <div className="space-y-4 mb-6">

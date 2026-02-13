@@ -1,0 +1,3 @@
+Booking ID,Service ID,Service Name,Category,Date,Time,Guests,Guest Name,Guest Email,Guest Phone,Status,Special Requests
+SERVICE-001,,In-room dining,dining,2025-05-14,12:00 PM,2,Alex Morgan,alex.morgan@example.com,+1234567890,confirmed,Vegetarian meal
+SERVICE-002,,Spa and wellness,spa,2025-05-15,2:00 PM,1,Jamie Lee,jamie.lee@example.com,+1987654321,pending,Deep tissue massage

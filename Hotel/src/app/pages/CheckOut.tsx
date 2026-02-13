@@ -18,6 +18,11 @@ const CheckOut = () => {
   const [room, setRoom] = useState<Room | null>(null);
   const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
 
+  const resolveImageUrl = (imageUrl: string) => {
+    if (!imageUrl) return 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=400';
+    return imageUrl.startsWith('/uploads/') ? `${API_BASE}${imageUrl}` : imageUrl;
+  };
+
   const [lateCheckout, setLateCheckout] = useState(false);
   const [lateCheckoutTime, setLateCheckoutTime] = useState('14:00');
   const [step, setStep] = useState(1);
@@ -160,9 +165,12 @@ const CheckOut = () => {
           {room && (
             <div className="flex gap-6 mb-6">
               <img
-                src={room.images[0]}
+                src={resolveImageUrl(room.images?.[0] || '')}
                 alt={room.name}
                 className="w-32 h-32 object-cover rounded-xl"
+                onError={(e) => {
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=400';
+                }}
               />
               <div className="flex-1">
                 <h3 className="text-xl mb-1">{room.name}</h3>

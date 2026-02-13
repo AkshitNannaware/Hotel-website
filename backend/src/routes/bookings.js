@@ -37,6 +37,44 @@ const upload = multer({
 
 router.use(requireDb, requireAuth);
 
+const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'checked-in'];
+
+const findNextAvailableRoomDates = async (roomId, checkInDate, checkOutDate) => {
+  const durationMs = checkOutDate.getTime() - checkInDate.getTime();
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return { checkInDate, checkOutDate };
+  }
+
+  let nextCheckIn = new Date(checkInDate);
+  let nextCheckOut = new Date(checkOutDate);
+
+  for (let i = 0; i < 50; i += 1) {
+    const overlaps = await Booking.find({
+      roomId,
+      status: { $in: ACTIVE_BOOKING_STATUSES },
+      cancelledAt: { $exists: false },
+      checkIn: { $lt: nextCheckOut },
+      checkOut: { $gt: nextCheckIn },
+    })
+      .select({ checkOut: 1 })
+      .lean();
+
+    if (!overlaps.length) {
+      break;
+    }
+
+    const latestCheckOut = overlaps.reduce((latest, booking) => {
+      const bookingCheckOut = new Date(booking.checkOut);
+      return bookingCheckOut > latest ? bookingCheckOut : latest;
+    }, new Date(nextCheckOut));
+
+    nextCheckIn = new Date(latestCheckOut);
+    nextCheckOut = new Date(latestCheckOut.getTime() + durationMs);
+  }
+
+  return { checkInDate: nextCheckIn, checkOutDate: nextCheckOut };
+};
+
 // Shape is based on BookingContext Booking interface
 // POST /api/bookings
 router.post('/', async (req, res, next) => {
@@ -56,27 +94,55 @@ router.post('/', async (req, res, next) => {
   } = req.body;
 
   try {
-    if (
+    if (req.user?.role === 'admin') {
+      return res.status(403).json({ message: 'Admins cannot create bookings' });
+    }
+
+    let checkInDate = new Date(checkIn);
+    let checkOutDate = new Date(checkOut);
+
+    const existingBooking = await Booking.findOne({
+      roomId,
+      status: { $in: ACTIVE_BOOKING_STATUSES },
+      cancelledAt: { $exists: false },
+      checkIn: { $lt: checkOutDate },
+      checkOut: { $gt: checkInDate },
+    }).lean();
+
+    if (existingBooking) {
+      const adjusted = await findNextAvailableRoomDates(roomId, checkInDate, checkOutDate);
+      checkInDate = adjusted.checkInDate;
+      checkOutDate = adjusted.checkOutDate;
+    }
+
+    const numericFields = [
+      { name: 'guests', value: guests },
+      { name: 'rooms', value: rooms },
+      { name: 'totalPrice', value: totalPrice },
+      { name: 'roomPrice', value: roomPrice },
+      { name: 'taxes', value: taxes },
+      { name: 'serviceCharges', value: serviceCharges },
+    ];
+
+    const missingRequired =
       !roomId ||
       !checkIn ||
       !checkOut ||
-      !guests ||
-      !rooms ||
-      !totalPrice ||
-      !roomPrice ||
-      !taxes ||
-      !serviceCharges ||
       !guestName ||
       !guestEmail ||
-      !guestPhone
-    ) {
+      !guestPhone ||
+      numericFields.some((field) =>
+        field.value === '' || field.value === null || field.value === undefined || !Number.isFinite(Number(field.value))
+      );
+
+    if (missingRequired) {
       return res.status(400).json({ message: 'Missing required booking fields' });
     }
 
     const booking = await Booking.create({
       roomId,
-      checkIn: new Date(checkIn),
-      checkOut: new Date(checkOut),
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
       guests,
       rooms,
       totalPrice,
@@ -149,6 +215,7 @@ router.patch('/:id/status', async (req, res, next) => {
     }
 
     booking.status = status;
+    booking.cancelledAt = status === 'cancelled' ? new Date() : undefined;
     await booking.save();
     res.json(booking);
   } catch (err) {

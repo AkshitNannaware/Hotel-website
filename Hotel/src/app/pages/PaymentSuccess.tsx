@@ -1,6 +1,6 @@
 import React from 'react';
-import { useParams, useNavigate } from 'react-router';
-import { CheckCircle, Download, Home } from 'lucide-react';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
+import { CheckCircle, Download, Home, Clock } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useBooking } from '../context/BookingContext';
 import { format } from 'date-fns';
@@ -9,6 +9,8 @@ import type { Room } from '../types/room';
 const PaymentSuccess = () => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const payAtCheckin = searchParams.get('payAtCheckin') === 'true';
   const { bookings, updateBookingStatus, updatePaymentStatus } = useBooking();
   const booking = bookings.find(b => b.id === bookingId);
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -25,15 +27,22 @@ const PaymentSuccess = () => {
         await updateBookingStatus(booking.id, 'confirmed');
       }
 
-      if (booking.paymentStatus !== 'paid') {
-        await updatePaymentStatus(booking.id, 'paid');
+      // Update payment status based on payment method
+      if (payAtCheckin) {
+        if (booking.paymentStatus !== 'pending') {
+          await updatePaymentStatus(booking.id, 'pending');
+        }
+      } else {
+        if (booking.paymentStatus !== 'paid') {
+          await updatePaymentStatus(booking.id, 'paid');
+        }
       }
     };
 
     syncStatuses().catch(() => {
       // ignore status sync errors
     });
-  }, [booking?.id, booking?.status, booking?.paymentStatus, updateBookingStatus, updatePaymentStatus]);
+  }, [booking?.id, booking?.status, booking?.paymentStatus, payAtCheckin, updateBookingStatus, updatePaymentStatus]);
 
   React.useEffect(() => {
     const loadRoom = async () => {
@@ -91,9 +100,14 @@ const PaymentSuccess = () => {
             <CheckCircle className="w-12 h-12 text-white" />
           </div>
 
-          <h1 className="text-4xl mb-3">Payment Successful!</h1>
+          <h1 className="text-4xl mb-3">
+            {payAtCheckin ? 'Booking Confirmed!' : 'Payment Successful!'}
+          </h1>
           <p className="text-xl text-stone-600 mb-8">
-            Your booking has been confirmed
+            {payAtCheckin 
+              ? 'Your room is reserved. Payment will be collected at check-in'
+              : 'Your booking has been confirmed'
+            }
           </p>
 
           <div className="bg-stone-50 rounded-2xl p-6 mb-8 text-left">
@@ -146,9 +160,17 @@ const PaymentSuccess = () => {
 
             <div className="pt-6 border-t border-stone-200">
               <div className="flex justify-between items-center">
-                <span className="text-lg text-stone-600">Total Amount Paid</span>
+                <span className="text-lg text-stone-600">
+                  {payAtCheckin ? 'Amount Due at Check-in' : 'Total Amount Paid'}
+                </span>
                 <span className="text-3xl">${booking.totalPrice.toFixed(2)}</span>
               </div>
+              {payAtCheckin && (
+                <div className="mt-4 flex items-center gap-2 text-sm text-stone-600">
+                  <Clock className="w-4 h-4" />
+                  <span>Payment can be made in cash or card at the hotel reception</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -185,6 +207,7 @@ const PaymentSuccess = () => {
             </p>
             <p>
               A confirmation email has been sent to {booking.guestEmail} with your booking details.
+              {payAtCheckin && ' Please bring a valid ID and payment method for check-in.'}
             </p>
           </div>
         </div>

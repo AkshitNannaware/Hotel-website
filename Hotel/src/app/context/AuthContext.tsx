@@ -6,6 +6,7 @@ interface User {
   email: string;
   phone: string;
   role: 'user' | 'admin';
+  twoFactorEnabled?: boolean;
 }
 
 interface AuthContextType {
@@ -13,6 +14,7 @@ interface AuthContextType {
   login: (identifier: string, password: string) => Promise<boolean>;
   signup: (name: string, email: string, phone: string, password: string) => Promise<boolean>;
   logout: () => void;
+  updateUser: (userData: Partial<User>) => void;
   isAdmin: boolean;
 }
 
@@ -21,7 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:5000';
 
   useEffect(() => {
     const stored = localStorage.getItem('auth');
@@ -112,8 +114,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('auth');
   };
 
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+      const auth = JSON.parse(localStorage.getItem('auth') || '{}');
+      localStorage.setItem('auth', JSON.stringify({ ...auth, user: updatedUser }));
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, isAdmin: user?.role === 'admin' }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateUser, isAdmin: user?.role === 'admin' }}>
       {children}
     </AuthContext.Provider>
   );

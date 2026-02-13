@@ -78,7 +78,7 @@ const Footer = () => {
           <p className="text-stone-400 text-sm">
             © 2026 Grand Luxe Hotel. All rights reserved.
           </p>
-          <div className="flex gap-6 text-stone-400 text-sm">
+          <div className="flex flex-wrap justify-center gap-4 text-stone-400 text-sm">
             <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
             <Link to="/cookies" className="hover:text-white transition-colors">Cookie Policy</Link>

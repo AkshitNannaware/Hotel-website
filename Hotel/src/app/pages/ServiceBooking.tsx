@@ -1,16 +1,50 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Calendar, Clock, Users, CheckCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { services } from '../data/mockData';
 import { toast } from 'sonner';
+import { useAuth } from '../context/AuthContext';
+
+type Service = {
+  id: string;
+  name: string;
+  category: 'dining' | 'restaurant' | 'spa' | 'bar';
+  description: string;
+  image: string;
+  priceRange: string;
+  availableTimes: string[];
+};
 
 const ServiceBooking = () => {
   const { serviceId } = useParams();
   const navigate = useNavigate();
-  const service = services.find(s => s.id === serviceId);
+  const { user } = useAuth();
+  const [service, setService] = useState<Service | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:5000';
+
+  const resolveImageUrl = (imageUrl: string) => {
+    if (!imageUrl) return '';
+    const trimmed = imageUrl.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/uploads/')) {
+      return `${API_BASE}${trimmed}`;
+    }
+    if (trimmed.startsWith('uploads/')) {
+      return `${API_BASE}/${trimmed}`;
+    }
+    if (trimmed.startsWith('/')) {
+      return `${API_BASE}${trimmed}`;
+    }
+    return `${API_BASE}/${trimmed}`;
+  };
 
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -18,18 +52,75 @@ const ServiceBooking = () => {
   const [specialRequests, setSpecialRequests] = useState('');
   const [step, setStep] = useState(1);
 
-  if (!service) {
+  useEffect(() => {
+    if (!serviceId) {
+      setLoadError('Missing service ID');
+      return;
+    }
+
+    const loadService = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = await fetch(`${API_BASE}/api/services/${serviceId}`);
+        if (!response.ok) {
+          throw new Error(`Failed to load service (${response.status})`);
+        }
+        const data = await response.json();
+        setService({
+          id: data._id || data.id,
+          name: data.name,
+          category: String(data.category || '').toLowerCase(),
+          description: data.description || '',
+          image: data.image || '',
+          priceRange: data.priceRange || '',
+          availableTimes: data.availableTimes || [],
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load service';
+        setLoadError(message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadService();
+  }, [API_BASE, serviceId]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-stone-600">Loading service...</div>
+      </div>
+    );
+  }
+
+  if (loadError || !service) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl mb-4">Service not found</h2>
+          {loadError && <p className="text-stone-600 mb-4">{loadError}</p>}
           <Button onClick={() => navigate('/services')}>Back to Services</Button>
         </div>
       </div>
     );
   }
 
-  const handleBooking = (e: React.FormEvent) => {
+  const getAuthToken = () => {
+    const stored = localStorage.getItem('auth');
+    if (!stored) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(stored);
+      return parsed.token as string | undefined;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!date || !time) {
@@ -37,8 +128,59 @@ const ServiceBooking = () => {
       return;
     }
 
-    setStep(2);
-    toast.success('Service booked successfully!');
+    if (!user) {
+      toast.error('Please sign in to book a service');
+      navigate('/login');
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      toast.error('Please sign in to book a service');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/service-bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          serviceId: service?.id,
+          date,
+          time,
+          guests: Number(guests) || 1,
+          specialRequests,
+          guestName: user.name,
+          guestEmail: user.email,
+          guestPhone: user.phone,
+        }),
+      });
+
+      if (!response.ok) {
+        let message = `Booking failed (${response.status})`;
+        try {
+          const data = await response.json();
+          if (data?.message) {
+            message = data.message;
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+
+      const saved = await response.json();
+      setBookingId(saved._id || saved.id || null);
+      setStep(2);
+      toast.success('Service booked successfully!');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Service booking failed';
+      toast.error(message);
+    }
   };
 
   if (step === 2) {
@@ -80,7 +222,7 @@ const ServiceBooking = () => {
                 </div>
                 <div>
                   <div className="text-sm text-stone-600 mb-1">Booking ID</div>
-                  <div className="text-lg">SRV{Date.now().toString().slice(-6)}</div>
+                  <div className="text-lg">{bookingId ? bookingId : 'SRV'}</div>
                 </div>
               </div>
 
@@ -222,11 +364,19 @@ const ServiceBooking = () => {
               <h3 className="text-xl mb-6">Service Details</h3>
 
               <div className="mb-6">
-                <img
-                  src={service.image}
-                  alt={service.name}
-                  className="w-full h-48 object-cover rounded-2xl"
-                />
+                {resolveImageUrl(service.image) ? (
+                  <img
+                    src={resolveImageUrl(service.image)}
+                    alt={service.name}
+                    className="w-full h-48 object-cover rounded-2xl"
+                    onError={(event) => {
+                      const target = event.currentTarget;
+                      target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="h-48 rounded-2xl bg-gradient-to-br from-stone-100 to-stone-200" />
+                )}
               </div>
 
               <div className="space-y-4 mb-6">

@@ -1,47 +1,86 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { CreditCard, Smartphone, Building2, ArrowLeft, Lock } from 'lucide-react';
+import { ArrowLeft, Lock, Clock, Smartphone, Building2, CreditCard } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { useBooking } from '../context/BookingContext';
 import { toast } from 'sonner';
 import type { Room } from '../types/room';
 
+// Razorpay integration
+declare global {
+  interface Window {
+    Razorpay?: any;
+  }
+}
+
 const Payment = () => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
-  const { bookings } = useBooking();
+  const { bookings, refreshBookings } = useBooking();
   const booking = bookings.find(b => b.id === bookingId);
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
   const [room, setRoom] = useState<Room | null>(null);
   const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
-
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'netbanking'>('card');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [upiId, setUpiId] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  if (!booking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl mb-4">Booking not found</h2>
-          <Button onClick={() => navigate('/rooms')}>Browse Rooms</Button>
-        </div>
-      </div>
-    );
-  }
+  const isCancelled = booking?.status === 'cancelled';
+  const isIdApproved = booking?.idVerified === 'approved';
+  const isPaymentLocked = Boolean(booking && (!isIdApproved || isCancelled));
+  const paymentLockMessage = isCancelled
+    ? 'This booking was cancelled. Payment is not available.'
+    : 'Your ID proof must be approved by the admin before you can pay.';
+
+  const getAuthToken = () => {
+    const stored = localStorage.getItem('auth');
+    if (!stored) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(stored);
+      return parsed.token || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const loadRazorpayScript = () => new Promise<boolean>((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+  useEffect(() => {
+    refreshBookings().catch(() => {
+      // ignore refresh errors
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const loadRoom = async () => {
       setRoomLoadError(null);
       try {
-        const response = await fetch(`${API_BASE}/api/rooms/${booking.roomId}`);
+        const roomId = booking?.roomId;
+        if (!roomId) {
+          return;
+        }
+        const response = await fetch(`${API_BASE}/api/rooms/${roomId}`);
         if (!response.ok) {
           throw new Error(`Failed to load room (${response.status})`);
         }
@@ -64,26 +103,173 @@ const Payment = () => {
       }
     };
 
-    if (booking?.roomId) {
-      loadRoom();
-    }
+    loadRoom();
   }, [API_BASE, booking?.roomId]);
+
+  if (!booking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl mb-4">Booking not found</h2>
+          <Button onClick={() => navigate('/rooms')}>Browse Rooms</Button>
+        </div>
+      </div>
+    );
+  }
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    await handlePaymentWithMethod();
+  };
+
+  // Handle UPI Payment
+  const handleUPIPayment = async () => {
+    await handlePaymentWithMethod('upi');
+  };
+
+  // Handle Net Banking Payment
+  const handleNetBankingPayment = async () => {
+    await handlePaymentWithMethod('netbanking');
+  };
+
+  // Generic payment handler with method preference
+  const handlePaymentWithMethod = async (method?: string) => {
     setProcessing(true);
 
-    // Simulate payment processing
-    setTimeout(() => {
-      const success = Math.random() > 0.1; // 90% success rate
-      
-      if (success) {
-        navigate(`/payment-success/${bookingId}`);
-      } else {
-        navigate(`/payment-failed/${bookingId}`);
-      }
+    if (isPaymentLocked) {
+      toast.error(paymentLockMessage);
       setProcessing(false);
-    }, 2000);
+      return;
+    }
+
+    if (!RAZORPAY_KEY_ID) {
+      toast.error('Razorpay key is not configured');
+      setProcessing(false);
+      return;
+    }
+
+    if (!bookingId) {
+      toast.error('Missing booking ID');
+      setProcessing(false);
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      toast.error('Please sign in to continue');
+      setProcessing(false);
+      return;
+    }
+
+    const scriptLoaded = await loadRazorpayScript();
+    if (!scriptLoaded) {
+      toast.error('Failed to load Razorpay checkout');
+      setProcessing(false);
+      return;
+    }
+
+    try {
+      const orderResponse = await fetch(`${API_BASE}/api/payments/razorpay/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ bookingId }),
+      });
+
+      if (!orderResponse.ok) {
+        let message = `Failed to create order (${orderResponse.status})`;
+        try {
+          const data = await orderResponse.json();
+          if (data?.message) {
+            message = data.message;
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(message);
+      }
+
+      const order = await orderResponse.json();
+
+      const options: any = {
+        key: RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'Hotel Booking',
+        description: `Booking ${booking.id}`,
+        order_id: order.orderId,
+        prefill: {
+          name: booking.guestName,
+          email: booking.guestEmail,
+          contact: booking.guestPhone,
+        },
+        notes: {
+          bookingId: booking.id,
+        },
+        modal: {
+          ondismiss: () => setProcessing(false),
+        },
+        handler: async (response: any) => {
+          try {
+            const verifyResponse = await fetch(`${API_BASE}/api/payments/razorpay/verify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                bookingId,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            if (!verifyResponse.ok) {
+              throw new Error('Payment verification failed');
+            }
+
+            navigate(`/payment-success/${bookingId}`);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Payment verification failed';
+            toast.error(message);
+            navigate(`/payment-failed/${bookingId}`);
+          } finally {
+            setProcessing(false);
+          }
+        },
+      };
+
+      // Add method preference if specified
+      if (method === 'upi') {
+        options.method = { upi: true };
+      } else if (method === 'netbanking') {
+        options.method = { netbanking: true };
+      }
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.on('payment.failed', (response: any) => {
+        const description = response?.error?.description || 'Payment failed';
+        toast.error(description);
+        navigate(`/payment-failed/${bookingId}`);
+        setProcessing(false);
+      });
+      razorpay.open();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Payment failed';
+      toast.error(message);
+      setProcessing(false);
+    }
+  };
+
+  // Handle Pay at Check-in option
+  const handlePayAtCheckIn = () => {
+    toast.success('Booking confirmed! Payment will be collected at check-in.');
+    setTimeout(() => {
+      navigate(`/payment-success/${bookingId}?payAtCheckin=true`);
+    }, 1000);
   };
 
   return (
@@ -104,158 +290,156 @@ const Payment = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Payment Form */}
+          {/* Payment Options */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl p-8 shadow-sm">
-              <h2 className="text-2xl mb-6">Payment Method</h2>
+              <h2 className="text-2xl mb-6">Complete Payment</h2>
 
-              <RadioGroup value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)} className="mb-8">
-                <div className="space-y-3">
-                  <div className="flex items-center p-4 border-2 border-stone-200 rounded-xl hover:border-stone-900 cursor-pointer transition-colors">
-                    <RadioGroupItem value="card" id="card" className="mr-3" />
-                    <Label htmlFor="card" className="flex items-center gap-3 cursor-pointer flex-1">
-                      <CreditCard className="w-5 h-5" />
-                      <span>Credit / Debit Card</span>
-                    </Label>
-                  </div>
+              {isPaymentLocked && (
+                <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {paymentLockMessage}
+                </div>
+              )}
 
-                  <div className="flex items-center p-4 border-2 border-stone-200 rounded-xl hover:border-stone-900 cursor-pointer transition-colors">
-                    <RadioGroupItem value="upi" id="upi" className="mr-3" />
-                    <Label htmlFor="upi" className="flex items-center gap-3 cursor-pointer flex-1">
-                      <Smartphone className="w-5 h-5" />
-                      <span>UPI</span>
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center p-4 border-2 border-stone-200 rounded-xl hover:border-stone-900 cursor-pointer transition-colors">
-                    <RadioGroupItem value="netbanking" id="netbanking" className="mr-3" />
-                    <Label htmlFor="netbanking" className="flex items-center gap-3 cursor-pointer flex-1">
-                      <Building2 className="w-5 h-5" />
-                      <span>Net Banking</span>
-                    </Label>
+              <div className="space-y-4">
+                {/* Credit/Debit Card Payment */}
+                <div className="bg-stone-50 border-2 border-stone-200 rounded-2xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-stone-700 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold mb-2">Credit / Debit Card</h3>
+                      <p className="text-sm text-stone-600 mb-3">
+                        Pay securely using your credit or debit card via Razorpay.
+                      </p>
+                      <form onSubmit={handlePayment}>
+                        <Button
+                          type="submit"
+                          className="w-full h-12 rounded-xl text-base bg-stone-700 hover:bg-stone-800"
+                          disabled={processing || isPaymentLocked}
+                        >
+                          {processing ? (
+                            <>Processing...</>
+                          ) : isPaymentLocked ? (
+                            <>Awaiting ID Approval</>
+                          ) : (
+                            <>
+                              <CreditCard className="w-5 h-5 mr-2" />
+                              Pay ${booking.totalPrice.toFixed(2)}
+                            </>
+                          )}
+                        </Button>
+                      </form>
+                    </div>
                   </div>
                 </div>
-              </RadioGroup>
 
-              <form onSubmit={handlePayment} className="space-y-5">
-                {paymentMethod === 'card' && (
-                  <>
-                    <div>
-                      <Label htmlFor="cardNumber">Card Number</Label>
-                      <Input
-                        id="cardNumber"
-                        type="text"
-                        placeholder="1234 5678 9012 3456"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        maxLength={19}
-                        className="mt-2 h-12"
-                        required
-                      />
+                {/* UPI Payment */}
+                <div className="bg-stone-50 border-2 border-stone-200 rounded-2xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-stone-700 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Smartphone className="w-6 h-6 text-white" />
                     </div>
-
-                    <div>
-                      <Label htmlFor="cardName">Cardholder Name</Label>
-                      <Input
-                        id="cardName"
-                        type="text"
-                        placeholder="Name on card"
-                        value={cardName}
-                        onChange={(e) => setCardName(e.target.value)}
-                        className="mt-2 h-12"
-                        required
-                      />
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold mb-2">UPI</h3>
+                      <p className="text-sm text-stone-600 mb-3">
+                        Pay instantly using Google Pay, PhonePe, Paytm, or any UPI app.
+                      </p>
+                      <Button
+                        onClick={handleUPIPayment}
+                        className="w-full h-12 rounded-xl text-base bg-stone-700 hover:bg-stone-800"
+                        disabled={processing || isPaymentLocked}
+                      >
+                        {processing ? (
+                          <>Processing...</>
+                        ) : isPaymentLocked ? (
+                          <>Awaiting ID Approval</>
+                        ) : (
+                          <>
+                            <Smartphone className="w-5 h-5 mr-2" />
+                            Pay ${booking.totalPrice.toFixed(2)} via UPI
+                          </>
+                        )}
+                      </Button>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="expiryDate">Expiry Date</Label>
-                        <Input
-                          id="expiryDate"
-                          type="text"
-                          placeholder="MM/YY"
-                          value={expiryDate}
-                          onChange={(e) => setExpiryDate(e.target.value)}
-                          maxLength={5}
-                          className="mt-2 h-12"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="cvv">CVV</Label>
-                        <Input
-                          id="cvv"
-                          type="password"
-                          placeholder="123"
-                          value={cvv}
-                          onChange={(e) => setCvv(e.target.value)}
-                          maxLength={3}
-                          className="mt-2 h-12"
-                          required
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {paymentMethod === 'upi' && (
-                  <div>
-                    <Label htmlFor="upiId">UPI ID</Label>
-                    <Input
-                      id="upiId"
-                      type="text"
-                      placeholder="yourname@upi"
-                      value={upiId}
-                      onChange={(e) => setUpiId(e.target.value)}
-                      className="mt-2 h-12"
-                      required
-                    />
-                    <p className="text-sm text-stone-600 mt-2">
-                      You will receive a payment request on your UPI app
-                    </p>
                   </div>
-                )}
-
-                {paymentMethod === 'netbanking' && (
-                  <div>
-                    <Label htmlFor="bank">Select Your Bank</Label>
-                    <select
-                      id="bank"
-                      className="mt-2 w-full h-12 px-4 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-900"
-                      required
-                    >
-                      <option value="">Choose your bank</option>
-                      <option value="hdfc">HDFC Bank</option>
-                      <option value="icici">ICICI Bank</option>
-                      <option value="sbi">State Bank of India</option>
-                      <option value="axis">Axis Bank</option>
-                      <option value="kotak">Kotak Mahindra Bank</option>
-                    </select>
-                  </div>
-                )}
-
-                <div className="pt-6">
-                  <Button
-                    type="submit"
-                    className="w-full h-14 rounded-xl text-base"
-                    disabled={processing}
-                  >
-                    {processing ? (
-                      <>Processing...</>
-                    ) : (
-                      <>
-                        <Lock className="w-5 h-5 mr-2" />
-                        Pay ${booking.totalPrice.toFixed(2)}
-                      </>
-                    )}
-                  </Button>
                 </div>
 
-                <div className="flex items-center justify-center gap-2 text-sm text-stone-600">
-                  <Lock className="w-4 h-4" />
-                  <span>Secure payment powered by 256-bit SSL encryption</span>
+                {/* Net Banking Payment */}
+                <div className="bg-stone-50 border-2 border-stone-200 rounded-2xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-stone-700 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Building2 className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold mb-2">Net Banking</h3>
+                      <p className="text-sm text-stone-600 mb-3">
+                        Pay directly from your bank account. Supports all major Indian banks.
+                      </p>
+                      <Button
+                        onClick={handleNetBankingPayment}
+                        className="w-full h-12 rounded-xl text-base bg-stone-700 hover:bg-stone-800"
+                        disabled={processing || isPaymentLocked}
+                      >
+                        {processing ? (
+                          <>Processing...</>
+                        ) : isPaymentLocked ? (
+                          <>Awaiting ID Approval</>
+                        ) : (
+                          <>
+                            <Building2 className="w-5 h-5 mr-2" />
+                            Pay ${booking.totalPrice.toFixed(2)} via Net Banking
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </form>
+
+                {/* Pay at Check-in Option */}
+                <div className="bg-stone-50 border-2 border-stone-200 rounded-2xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-stone-700 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold mb-2">Pay at Check-in</h3>
+                      <p className="text-sm text-stone-600 mb-3">
+                        Reserve your room now and complete payment when you arrive at the hotel.
+                      </p>
+                      <ul className="text-sm text-stone-600 space-y-1.5 mb-4">
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-stone-600 rounded-full"></span>
+                          No payment required now
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-stone-600 rounded-full"></span>
+                          Pay in cash or card at hotel
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-stone-600 rounded-full"></span>
+                          Free cancellation (24 hours notice)
+                        </li>
+                      </ul>
+                      <Button
+                        onClick={handlePayAtCheckIn}
+                        variant="outline"
+                        className="w-full h-12 rounded-xl text-base"
+                        disabled={isPaymentLocked}
+                      >
+                        <Clock className="w-5 h-5 mr-2" />
+                        Confirm Booking
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-6">
+                <Lock className="w-4 h-4" />
+                <span>Secure payment powered by 256-bit SSL encryption</span>
+              </div>
             </div>
           </div>
 

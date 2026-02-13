@@ -9,8 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import type { Room } from '../types/room';
 
 const RoomListing = () => {
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const API_BASE = (import.meta.env?.VITE_API_URL as string | undefined) || 'http://localhost:5000';
   const [priceRange, setPriceRange] = useState([0, 1000]);
+
+  const resolveImageUrl = (imageUrl: string) => {
+    if (!imageUrl) return '';
+    return imageUrl.startsWith('/uploads/') ? `${API_BASE}${imageUrl}` : imageUrl;
+  };
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('price-low');
@@ -87,26 +92,60 @@ const RoomListing = () => {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-4xl mb-2">Available Rooms</h1>
-            <p className="text-stone-600">{filteredRooms.length} rooms found</p>
+      <section className="relative overflow-hidden">
+        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-amber-200/40 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-emerald-200/40 blur-3xl" />
+        <div className="max-w-7xl mx-auto px-4 pt-10 pb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 items-center">
+            <div>
+              <p className="uppercase tracking-[0.3em] text-xs text-stone-500 mb-3">Rooms</p>
+              <h1 className="text-4xl md:text-5xl font-semibold text-stone-900 leading-tight">
+                Quiet, tailored stays with a sense of place.
+              </h1>
+              <p className="text-stone-600 mt-4 max-w-2xl">
+                Explore our collection of suites and rooms curated for comfort, light, and balance.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <span className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700">
+                  {filteredRooms.length} rooms available
+                </span>
+                <span className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700">
+                  Flexible check-in
+                </span>
+                <span className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700">
+                  Curated amenities
+                </span>
+              </div>
+            </div>
+            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-2xl bg-stone-100 p-4">
+                  <p className="text-xs uppercase tracking-wider text-stone-500">Total Rooms</p>
+                  <p className="text-2xl font-semibold text-stone-900">{roomsState.length}</p>
+                </div>
+                <div className="rounded-2xl bg-stone-100 p-4">
+                  <p className="text-xs uppercase tracking-wider text-stone-500">Filtered</p>
+                  <p className="text-2xl font-semibold text-stone-900">{filteredRooms.length}</p>
+                </div>
+                <div className="col-span-2 rounded-2xl border border-dashed border-stone-200 p-4 text-sm text-stone-600">
+                  Set your filters and compare suites without leaving the page.
+                </div>
+              </div>
+            </div>
           </div>
-          
-          <div className="flex gap-3 w-full md:w-auto">
+
+          <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full">
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
-              className="flex-1 md:flex-none"
+              className="flex-1 sm:flex-none"
             >
               <SlidersHorizontal className="w-4 h-4 mr-2" />
               Filters
             </Button>
-            
+
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[220px]">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
@@ -116,12 +155,14 @@ const RoomListing = () => {
             </Select>
           </div>
         </div>
+      </section>
 
-        <div className="flex gap-8">
+      <div className="max-w-7xl mx-auto px-4 pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
           {/* Filters Sidebar */}
-          <div className={`${showFilters ? 'block' : 'hidden'} md:block w-full md:w-80 flex-shrink-0`}>
-            <div className="bg-white rounded-3xl p-6 shadow-sm sticky top-4">
-              <h3 className="text-xl mb-6">Filters</h3>
+          <div className={`${showFilters ? 'block' : 'hidden'} lg:block w-full`}>
+            <div className="rounded-3xl border border-stone-200 bg-white/90 p-6 shadow-sm backdrop-blur lg:sticky lg:top-4">
+              <h3 className="text-xl font-semibold text-stone-900 mb-6">Filters</h3>
 
               {/* Price Range */}
               <div className="mb-8">
@@ -201,72 +242,70 @@ const RoomListing = () => {
                 {loadError}
               </div>
             )}
-            <div className="grid grid-cols-1 gap-6">
-              {filteredRooms.map(room => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {filteredRooms.map((room) => (
                 <Link
                   key={room.id}
                   to={`/room/${room.id}`}
-                  className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all"
+                  className="group rounded-3xl border border-stone-200 bg-white overflow-hidden shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
-                    <div className="relative h-64 md:h-auto overflow-hidden">
-                      <img
-                        src={room.images[0]}
-                        alt={room.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                      {room.available && (
-                        <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm">
-                          Available
-                        </div>
-                      )}
+                  <div className="relative h-52 overflow-hidden">
+                    <img
+                      src={resolveImageUrl(room.images[0])}
+                      alt={room.name}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    {room.available && (
+                      <div className="absolute top-4 left-4 rounded-full bg-emerald-500/90 px-3 py-1 text-xs text-white">
+                        Available
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-stone-900">{room.name}</h3>
+                        <p className="text-sm text-stone-600">{room.type} Room</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-semibold text-stone-900">${room.price}</div>
+                        <div className="text-xs text-stone-500">per night</div>
+                      </div>
                     </div>
 
-                    <div className="md:col-span-2 p-6 flex flex-col">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="text-2xl mb-1">{room.name}</h3>
-                          <p className="text-stone-600">{room.type} Room</p>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-3xl mb-1">${room.price}</div>
-                          <div className="text-sm text-stone-600">per night</div>
-                        </div>
-                      </div>
+                    <p className="text-sm text-stone-600 mt-3 line-clamp-2">
+                      {room.description || 'A bright, restful room with curated amenities.'}
+                    </p>
 
-                      <p className="text-stone-600 mb-4 line-clamp-2">{room.description}</p>
-
-                      <div className="flex items-center gap-4 mb-4 text-sm text-stone-600">
-                        <div className="flex items-center gap-1">
-                          <Users className="w-4 h-4" />
-                          Up to {room.maxGuests} guests
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Maximize2 className="w-4 h-4" />
-                          {room.size} m²
-                        </div>
+                    <div className="mt-4 flex items-center gap-4 text-xs text-stone-600">
+                      <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        Up to {room.maxGuests} guests
                       </div>
-
-                      <div className="flex flex-wrap gap-2 mt-auto">
-                        {room.amenities.slice(0, 6).map((amenity, idx) => {
-                          const Icon = amenityIcons[amenity] || Coffee;
-                          return (
-                            <div
-                              key={idx}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 rounded-full text-sm"
-                            >
-                              <Icon className="w-4 h-4" />
-                              {amenity}
-                            </div>
-                          );
-                        })}
+                      <div className="flex items-center gap-1">
+                        <Maximize2 className="w-4 h-4" />
+                        {room.size} m²
                       </div>
+                    </div>
 
-                      <div className="mt-4 pt-4 border-t border-stone-200">
-                        <Button className="w-full md:w-auto rounded-xl">
-                          View Details & Book
-                        </Button>
-                      </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {room.amenities.slice(0, 6).map((amenity, idx) => {
+                        const Icon = amenityIcons[amenity] || Coffee;
+                        return (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700"
+                          >
+                            <Icon className="w-4 h-4" />
+                            {amenity}
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-5">
+                      <Button className="w-full rounded-xl">View Details & Book</Button>
                     </div>
                   </div>
                 </Link>

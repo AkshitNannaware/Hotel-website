@@ -11,6 +11,8 @@ const Contact = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
+    subject: '',
     message: '',
   });
 
@@ -23,11 +25,25 @@ const Contact = () => {
     event.preventDefault();
     setIsSending(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      toast.success('Message sent. We will get back to you soon.');
-      setFormData({ name: '', email: '', message: '' });
-    } catch {
-      toast.error('Unable to send message. Please try again.');
+      const response = await fetch('http://localhost:5000/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send message');
+      }
+
+      toast.success('Message sent successfully! We will get back to you soon.');
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to send message. Please try again.';
+      toast.error(message);
     } finally {
       setIsSending(false);
     }
@@ -65,6 +81,27 @@ const Contact = () => {
                   onChange={handleChange}
                   className="mt-2 h-12"
                   required
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone Number (Optional)</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="mt-2 h-12"
+                  placeholder="+1 (555) 000-0000"
+                />
+              </div>
+              <div>
+                <Label htmlFor="subject">Subject (Optional)</Label>
+                <Input
+                  id="subject"
+                  value={formData.subject}
+                  onChange={handleChange}
+                  className="mt-2 h-12"
+                  placeholder="What is this regarding?"
                 />
               </div>
               <div>

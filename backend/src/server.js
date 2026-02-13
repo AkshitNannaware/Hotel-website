@@ -11,7 +11,15 @@ const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/admin/rooms');
 const serviceRoutes = require('./routes/admin/services');
 const bookingRoutes = require('./routes/bookings');
+const adminBookingRoutes = require('./routes/admin/bookings');
+const serviceBookingRoutes = require('./routes/serviceBookings');
+const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/admin/admin');
+const adminContactRoutes = require('./routes/admin/contacts');
+const adminServiceBookingRoutes = require('./routes/admin/serviceBookings');
+const paymentRoutes = require('./routes/payments');
+const newsletterRoutes = require('./routes/newsletter');
+const adminNewsletterRoutes = require('./routes/admin/newsletters');
 const User = require('./models/User');
 
 const app = express();
@@ -41,7 +49,15 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/admin/bookings', adminBookingRoutes);
+app.use('/api/service-bookings', serviceBookingRoutes);
+app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/contacts', adminContactRoutes);
+app.use('/api/admin/service-bookings', adminServiceBookingRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/admin/newsletters', adminNewsletterRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -85,6 +101,7 @@ async function ensureAdminUser() {
     });
   }
 }
+
 
 startServer().catch((err) => {
   console.error('Failed to start server', err);

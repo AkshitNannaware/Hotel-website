@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 
 export interface BookingDetails {
@@ -74,7 +74,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const refreshBookings = async () => {
+  const refreshBookings = useCallback(async () => {
     const token = getAuthToken();
     if (!token) {
       setBookings([]);
@@ -121,7 +121,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     } catch {
       // ignore load errors
     }
-  };
+  }, [API_BASE]);
 
   useEffect(() => {
     if (!user) {
@@ -131,7 +131,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     }
 
     refreshBookings();
-  }, [API_BASE, user?.id]);
+  }, [user, refreshBookings]);
 
   const confirmBooking = async (guestDetails: { name: string; email: string; phone: string }): Promise<Booking> => {
     if (!currentBooking) throw new Error('No current booking');

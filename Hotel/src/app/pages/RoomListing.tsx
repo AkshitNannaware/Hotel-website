@@ -16,6 +16,11 @@ const RoomListing = () => {
     if (!imageUrl) return '';
     return imageUrl.startsWith('/uploads/') ? `${API_BASE}${imageUrl}` : imageUrl;
   };
+
+  const resolveVideoUrl = (videoUrl?: string) => {
+    if (!videoUrl) return '';
+    return videoUrl.startsWith('/uploads/') ? `${API_BASE}${videoUrl}` : videoUrl;
+  };
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('price-low');
@@ -47,6 +52,7 @@ const RoomListing = () => {
           type: room.type,
           price: room.price,
           images: room.images || [],
+          video: room.video || '',
           description: room.description || '',
           amenities: room.amenities || [],
           maxGuests: room.maxGuests || 1,
@@ -91,246 +97,271 @@ const RoomListing = () => {
     });
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <section className="relative overflow-hidden">
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-amber-200/40 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-emerald-200/40 blur-3xl" />
-        <div className="max-w-7xl mx-auto px-4 pt-10 pb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 items-center">
+    <div className="min-h-screen bg-[#3f4a40] text-[#efece6]">
+      <section className="relative overflow-hidden pt-13">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 15% 20%, rgba(88,105,90,0.35), transparent 55%), radial-gradient(circle at 85% 60%, rgba(98,120,100,0.35), transparent 60%), linear-gradient(180deg, rgba(23,30,24,0.9), rgba(23,30,24,0.55))',
+          }}
+        />
+        <div className="absolute inset-0 opacity-20 bg-[linear-gradient(90deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:220px_100%]" />
+        <div className="absolute inset-0 opacity-25 bg-[linear-gradient(180deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:100%_160px]" />
+
+        <div className="relative max-w-7xl mx-auto px-4 pt-10 pb-16">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-10">
             <div>
-              <p className="uppercase tracking-[0.3em] text-xs text-stone-500 mb-3">Rooms</p>
-              <h1 className="text-4xl md:text-5xl font-semibold text-stone-900 leading-tight">
-                Quiet, tailored stays with a sense of place.
+              <p className="text-xs uppercase tracking-[0.3em] text-[#cfc9bb]">Home &gt; Rooms</p>
+              <h1
+                className="text-4xl md:text-5xl text-[#efece6] mt-3"
+                style={{ fontFamily: "'Great Vibes', cursive" }}
+              >
+                Rooms & Rates
               </h1>
-              <p className="text-stone-600 mt-4 max-w-2xl">
-                Explore our collection of suites and rooms curated for comfort, light, and balance.
+              <p className="text-sm text-[#c9c3b6] mt-3 max-w-xl">
+                Curated stays with handcrafted details, tailored for quiet luxury.
               </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <span className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700">
-                  {filteredRooms.length} rooms available
-                </span>
-                <span className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700">
-                  Flexible check-in
-                </span>
-                <span className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm text-stone-700">
-                  Curated amenities
-                </span>
-              </div>
             </div>
-            <div className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-2xl bg-stone-100 p-4">
-                  <p className="text-xs uppercase tracking-wider text-stone-500">Total Rooms</p>
-                  <p className="text-2xl font-semibold text-stone-900">{roomsState.length}</p>
-                </div>
-                <div className="rounded-2xl bg-stone-100 p-4">
-                  <p className="text-xs uppercase tracking-wider text-stone-500">Filtered</p>
-                  <p className="text-2xl font-semibold text-stone-900">{filteredRooms.length}</p>
-                </div>
-                <div className="col-span-2 rounded-2xl border border-dashed border-stone-200 p-4 text-sm text-stone-600">
-                  Set your filters and compare suites without leaving the page.
-                </div>
-              </div>
+            <div className="flex flex-wrap gap-3">
+              <span className="rounded-full border border-[#5b6659] bg-[#2f3a32]/70 px-4 py-2 text-xs text-[#d7d2c5]">
+                {filteredRooms.length} rooms available
+              </span>
+              <span className="rounded-full border border-[#5b6659] bg-[#2f3a32]/70 px-4 py-2 text-xs text-[#d7d2c5]">
+                Flexible check-in
+              </span>
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full">
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex-1 sm:flex-none"
-            >
-              <SlidersHorizontal className="w-4 h-4 mr-2" />
-              Filters
-            </Button>
+          {showFilters && (
+            <div
+              className="fixed inset-0 z-20 bg-black/40 lg:hidden"
+              onClick={() => setShowFilters(false)}
+            />
+          )}
 
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full sm:w-[220px]">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="price-high">Price: High to Low</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8">
+            <div className="space-y-6">
+              <div className={`${showFilters ? 'block' : 'hidden'} lg:block w-full relative z-30 lg:z-auto`}>
+                <div className="rounded-3xl border border-[#5b6659] bg-[#2f3a32]/95 p-6 shadow-xl lg:sticky lg:top-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg text-[#efece6]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      Filters
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters(false)}
+                      className="lg:hidden text-xs uppercase tracking-[0.2em] text-[#d7d2c5]"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="mb-8">
+                    <label className="block text-xs uppercase tracking-[0.2em] text-[#cfc9bb] mb-3">
+                      Price Range: ${priceRange[0]} - ${priceRange[1]}
+                    </label>
+                    <Slider
+                      value={priceRange}
+                      onValueChange={setPriceRange}
+                      max={1000}
+                      step={10}
+                      className="mb-2"
+                    />
+                  </div>
+
+                  <div className="mb-8">
+                    <h4 className="text-sm text-[#efece6] mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      Room Type
+                    </h4>
+                    <div className="space-y-3">
+                      {['Single', 'Double', 'Suite', 'Deluxe'].map(type => (
+                        <div key={type} className="flex items-center gap-2">
+                          <Checkbox
+                            id={type}
+                            checked={selectedTypes.includes(type)}
+                            onCheckedChange={() => toggleType(type)}
+                          />
+                          <Label htmlFor={type} className="cursor-pointer text-[#cfc9bb]">
+                            {type}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mb-8">
+                    <h4 className="text-sm text-[#efece6] mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+                      Amenities
+                    </h4>
+                    <div className="space-y-3">
+                      {['WiFi', 'AC', 'Pool Access', 'Parking'].map(amenity => (
+                        <div key={amenity} className="flex items-center gap-2">
+                          <Checkbox
+                            id={amenity}
+                            checked={selectedAmenities.includes(amenity)}
+                            onCheckedChange={() => toggleAmenity(amenity)}
+                          />
+                          <Label htmlFor={amenity} className="cursor-pointer text-[#cfc9bb]">
+                            {amenity}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="w-full border-[#4b5246] text-[#efece6] bg-[#343a30] hover:bg-white/10 placeholder:text-[#9aa191]"
+                    onClick={() => {
+                      setSelectedTypes([]);
+                      setSelectedAmenities([]);
+                      setPriceRange([0, 1000]);
+                    }}
+                  >
+                    Clear All Filters
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1">
+              <div className="mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="lg:hidden border-[#5b6659] "
+                  aria-expanded={showFilters}
+                >
+                  <SlidersHorizontal className="w-4 h-4 mr-2" />
+                  Filters
+                </Button>
+
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-full sm:w-[220px] border-[#5b6659] bg-[#2f3a32] text-[#d7d2c5]">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="price-low">Price: Low to High</SelectItem>
+                    <SelectItem value="price-high">Price: High to Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isLoading && (
+                <div className="mb-6 rounded-xl border border-[#5b6659] bg-[#2f3a32]/80 px-4 py-3 text-sm text-[#d7d2c5]">
+                  Loading rooms...
+                </div>
+              )}
+              {loadError && (
+                <div className="mb-6 rounded-xl border border-red-200 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                  {loadError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredRooms.map((room) => (
+                  <Link
+                    key={room.id}
+                    to={`/room/${room.id}`}
+                    state={{ from: 'rooms' }}
+                    className="group rounded-2xl border border-[#5b6659] bg-[#2f3a32]/90 overflow-hidden shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl"
+                  >
+                    <div className="relative h-40 overflow-hidden">
+                      {resolveVideoUrl(room.video) ? (
+                        <video
+                          src={resolveVideoUrl(room.video)}
+                          className="h-full w-full object-cover"
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          poster={resolveImageUrl(room.images[0] || '') || undefined}
+                        />
+                      ) : resolveImageUrl(room.images[0] || '') ? (
+                        <img
+                          src={resolveImageUrl(room.images[0] || '')}
+                          alt={room.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="h-full w-full bg-[#222a22]" />
+                      )}
+                      <div className="absolute top-3 left-3 rounded-full bg-[#1e2520]/80 px-3 py-1 text-[10px] text-[#d7d2c5] border border-[#5b6659]">
+                        {room.available ? 'Available' : 'Limited'}
+                      </div>
+                    </div>
+
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-base text-[#efece6]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                            {room.name}
+                          </h3>
+                          <p className="text-xs text-[#cfc9bb] mt-1">Modern cozy suite · 1 queen bed</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-[#f0e7d6]">$ {room.price} night</div>
+                          <div className="text-[10px] text-[#cfc9bb]">4.9 (84)</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-3 text-[11px] text-[#cfc9bb]">
+                        <span className="inline-flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" />
+                          {room.maxGuests} guests
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Maximize2 className="w-3.5 h-3.5" />
+                          {room.size} m2
+                        </span>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {room.amenities.slice(0, 4).map((amenity, idx) => {
+                          const Icon = amenityIcons[amenity] || Coffee;
+                          return (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[#5b6659] bg-[#243026] px-2.5 py-1 text-[10px] text-[#d7d2c5]"
+                            >
+                              <Icon className="w-3 h-3" />
+                              {amenity}
+                            </span>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-4">
+                        <Button className="w-full rounded-full border border-[#5b6659] bg-transparent text-[#efece6] hover:bg-white/10">
+                          View Details
+                        </Button>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              {filteredRooms.length === 0 && (
+                <div className="text-center py-16">
+                  <div className="text-6xl mb-4">🏨</div>
+                  <h3 className="text-2xl mb-2 text-[#efece6]">No rooms found</h3>
+                  <p className="text-[#cfc9bb] mb-6">Try adjusting your filters</p>
+                  <Button
+                    onClick={() => {
+                      setSelectedTypes([]);
+                      setSelectedAmenities([]);
+                      setPriceRange([0, 1000]);
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
-
-      <div className="max-w-7xl mx-auto px-4 pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
-          {/* Filters Sidebar */}
-          <div className={`${showFilters ? 'block' : 'hidden'} lg:block w-full`}>
-            <div className="rounded-3xl border border-stone-200 bg-white/90 p-6 shadow-sm backdrop-blur lg:sticky lg:top-4">
-              <h3 className="text-xl font-semibold text-stone-900 mb-6">Filters</h3>
-
-              {/* Price Range */}
-              <div className="mb-8">
-                <label className="block text-sm mb-4">
-                  Price Range: ${priceRange[0]} - ${priceRange[1]}
-                </label>
-                <Slider
-                  value={priceRange}
-                  onValueChange={setPriceRange}
-                  max={1000}
-                  step={10}
-                  className="mb-2"
-                />
-              </div>
-
-              {/* Room Type */}
-              <div className="mb-8">
-                <h4 className="mb-4">Room Type</h4>
-                <div className="space-y-3">
-                  {['Single', 'Double', 'Suite', 'Deluxe'].map(type => (
-                    <div key={type} className="flex items-center gap-2">
-                      <Checkbox
-                        id={type}
-                        checked={selectedTypes.includes(type)}
-                        onCheckedChange={() => toggleType(type)}
-                      />
-                      <Label htmlFor={type} className="cursor-pointer text-stone-700">
-                        {type}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Amenities */}
-              <div className="mb-8">
-                <h4 className="mb-4">Amenities</h4>
-                <div className="space-y-3">
-                  {['WiFi', 'AC', 'Pool Access', 'Parking'].map(amenity => (
-                    <div key={amenity} className="flex items-center gap-2">
-                      <Checkbox
-                        id={amenity}
-                        checked={selectedAmenities.includes(amenity)}
-                        onCheckedChange={() => toggleAmenity(amenity)}
-                      />
-                      <Label htmlFor={amenity} className="cursor-pointer text-stone-700">
-                        {amenity}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setSelectedTypes([]);
-                  setSelectedAmenities([]);
-                  setPriceRange([0, 1000]);
-                }}
-              >
-                Clear All Filters
-              </Button>
-            </div>
-          </div>
-
-          {/* Room Cards */}
-          <div className="flex-1">
-            {isLoading && (
-              <div className="mb-6 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600">
-                Loading rooms...
-              </div>
-            )}
-            {loadError && (
-              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {loadError}
-              </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filteredRooms.map((room) => (
-                <Link
-                  key={room.id}
-                  to={`/room/${room.id}`}
-                  className="group rounded-3xl border border-stone-200 bg-white overflow-hidden shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
-                >
-                  <div className="relative h-52 overflow-hidden">
-                    <img
-                      src={resolveImageUrl(room.images[0])}
-                      alt={room.name}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    {room.available && (
-                      <div className="absolute top-4 left-4 rounded-full bg-emerald-500/90 px-3 py-1 text-xs text-white">
-                        Available
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-xl font-semibold text-stone-900">{room.name}</h3>
-                        <p className="text-sm text-stone-600">{room.type} Room</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-semibold text-stone-900">${room.price}</div>
-                        <div className="text-xs text-stone-500">per night</div>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-stone-600 mt-3 line-clamp-2">
-                      {room.description || 'A bright, restful room with curated amenities.'}
-                    </p>
-
-                    <div className="mt-4 flex items-center gap-4 text-xs text-stone-600">
-                      <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        Up to {room.maxGuests} guests
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Maximize2 className="w-4 h-4" />
-                        {room.size} m²
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {room.amenities.slice(0, 6).map((amenity, idx) => {
-                        const Icon = amenityIcons[amenity] || Coffee;
-                        return (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700"
-                          >
-                            <Icon className="w-4 h-4" />
-                            {amenity}
-                          </span>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-5">
-                      <Button className="w-full rounded-xl">View Details & Book</Button>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            {filteredRooms.length === 0 && (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">🏨</div>
-                <h3 className="text-2xl mb-2">No rooms found</h3>
-                <p className="text-stone-600 mb-6">Try adjusting your filters</p>
-                <Button
-                  onClick={() => {
-                    setSelectedTypes([]);
-                    setSelectedAmenities([]);
-                    setPriceRange([0, 1000]);
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

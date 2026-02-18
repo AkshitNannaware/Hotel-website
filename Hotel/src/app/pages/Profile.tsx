@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { User, Mail, Phone, Calendar, LogOut, Settings, Bell, CreditCard, Edit2, Save, X, AlertCircle, CheckCircle2, Award, Star, TrendingUp, MapPin, Gift, Shield } from 'lucide-react';
+import { User, Mail, Phone, Calendar, LogOut, Settings, Bell, CreditCard, Edit2, Save, X, AlertCircle, CheckCircle2, Award, Star, TrendingUp, MapPin, Gift, Shield, Menu } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +34,7 @@ const Profile = () => {
     : ['profile', 'bookings', 'service-bookings', 'payments', 'notifications', 'settings'];
   const resolveTab = (value: string | null) => (value && allowedTabs.includes(value) ? value : 'profile');
   const [activeTab, setActiveTab] = React.useState(() => resolveTab(searchParams.get('tab')));
+  const [isMobileNavOpen, setIsMobileNavOpen] = React.useState(false);
   const API_BASE = (import.meta.env?.VITE_API_URL as string | undefined) || 'http://localhost:5000';
   
   const resolveImageUrl = (imageUrl: string) => {
@@ -79,6 +80,7 @@ const Profile = () => {
     const nextTab = resolveTab(tab);
     setActiveTab(nextTab);
     setSearchParams({ tab: nextTab });
+    setIsMobileNavOpen(false);
   };
 
   React.useEffect(() => {
@@ -202,13 +204,13 @@ const Profile = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-50 to-stone-100 px-4">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 text-center">
-          <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <User className="w-10 h-10 text-stone-700" />
+      <div className="min-h-screen flex items-center justify-center bg-[#0f1210] px-4">
+        <div className="w-full max-w-md bg-[#2f3a32]/90 border border-[#4b5246] rounded-3xl shadow-xl p-8 text-center">
+          <div className="w-20 h-20 bg-[#343a30] rounded-full flex items-center justify-center mx-auto mb-4">
+            <User className="w-10 h-10 text-[#d7d0bf]" />
           </div>
-          <h2 className="text-2xl font-bold text-stone-800 mb-2">Please log in</h2>
-          <p className="text-stone-600 mb-6">You need to be logged in to view your profile</p>
+          <h2 className="text-2xl font-bold text-[#efece6] mb-2">Please log in</h2>
+          <p className="text-[#c9c3b6] mb-6">You need to be logged in to view your profile</p>
           <Button onClick={() => navigate('/login')} className="px-8 h-12">
             Login
           </Button>
@@ -378,7 +380,7 @@ const Profile = () => {
     'pending': 'bg-amber-100 text-amber-800',
     'confirmed': 'bg-emerald-100 text-emerald-800',
     'checked-in': 'bg-blue-100 text-blue-800',
-    'checked-out': 'bg-stone-200 text-stone-800',
+    'checked-out': 'bg-[#343a30] text-[#efece6]',
     'cancelled': 'bg-red-100 text-red-800',
   };
 
@@ -389,52 +391,105 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#3f4a40] text-[white] py-12 lg:py-16 overflow-y-scroll relative pt-10 md:pt-0">
+      {/* Background Gradients */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 15% 20%, rgba(88,105,90,0.35), transparent 55%), radial-gradient(circle at 85% 60%, rgba(98,120,100,0.35), transparent 60%), linear-gradient(180deg, rgba(23,30,24,0.9), rgba(23,30,24,0.55))',
+        }}
+      />
+      <div className="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(90deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:220px_100%]" />
+      <div className="absolute inset-0 pointer-events-none opacity-25 bg-[linear-gradient(180deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:100%_160px]" />
+      
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {isMobileNavOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+            onClick={() => setIsMobileNavOpen(false)}
+          />
+        )}
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-stone-800">
+        <div className="mb-12">
+          <div className="flex items-center justify-between lg:hidden mb-4">
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#4b5246] bg-[#343a30] px-3 py-2 text-sm font-medium text-[#efece6] shadow-sm"
+            >
+              <Menu className="w-4 h-4" />
+              Menu
+            </button>
+            <span className="text-sm text-[white]">My Account</span>
+          </div>
+          <h1 className="text-3xl font-bold text-[white]" style={{ fontFamily: "'Great Vibes', cursive" }}>
             Welcome back, {user.name.split(' ')[0]}!
           </h1>
-          <p className="text-stone-600 mt-1">Manage your profile and bookings</p>
+          <p className="text-[#efece6] mt-1">Manage your profile and bookings</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 lg:gap-10">
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-3xl shadow-xl p-6">
+            <div
+              className={`fixed inset-y-0 left-0 z-40 w-80 max-w-[85vw] bg-[#2f3a32]/90 border border-[#4b5246] rounded-none shadow-xl p-6 transform transition-transform lg:static lg:translate-x-0 lg:rounded-3xl ${
+                isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-4 lg:hidden">
+                <span className="text-sm font-semibold text-[white]">Navigation</span>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="p-2 rounded-lg text-[#c9c3b6] hover:text-[#efece6] hover:bg-[#343a30]"
+                  aria-label="Close menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
               {/* User Info */}
               <div className="text-center mb-6">
-                <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-2xl text-stone-700 font-bold">
+                <div className="w-20 h-20 bg-[#343a30] rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl text-[white] font-bold">
                     {user.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <h2 className="text-lg font-semibold text-stone-800">{user.name}</h2>
-                <p className="text-sm text-stone-600 mb-2">{user.role === 'admin' ? 'Administrator' : 'User'}</p>
+                <h2 className="text-lg font-semibold text-[white]">{user.name}</h2>
+                <p className="text-sm text-[#efece6] mb-2">{user.role === 'admin' ? 'Administrator' : 'User'}</p>
               </div>
 
               {/* Navigation */}
-              <nav className="space-y-1 mb-6">
-                <button
+              <nav className="space-y-2 mb-6">
+                {/* <button
                   onClick={() => handleTabChange('profile')}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                    activeTab === 'profile' 
-                      ? 'bg-stone-800 text-white' 
-                      : 'text-stone-600 hover:bg-stone-100'
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-shadow${
+                    activeTab === 'profile'
+                      ? 'bg-[#d7d0bf] text-[#1f241f] hover:shadow-lg'
+                      : 'text-[#c9c3b6] hover:shadow-lg'
                   }`}
                 >
                   <User className="w-4 h-4" />
                   My Profile
-                </button>
+                </button> */}
+                <button
+                      onClick={() => handleTabChange('profile')}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-shadow ${
+                        activeTab === 'profile' 
+                          ? 'bg-[#d7d0bf] text-[#1f241f] hover:shadow-lg'
+                          : 'text-[#c9c3b6] hover:shadow-lg'
+                      }`}
+                    >
+                      <Calendar className="w-4 h-4" />
+                      My Profile
+                    </button>
                 {!isAdmin && (
                   <>
                     <button
                       onClick={() => handleTabChange('bookings')}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-shadow ${
                         activeTab === 'bookings' 
-                          ? 'bg-stone-800 text-white' 
-                          : 'text-stone-600 hover:bg-stone-100'
+                          ? 'bg-[#d7d0bf] text-[#1f241f] hover:shadow-lg'
+                          : 'text-[#c9c3b6] hover:shadow-lg'
                       }`}
                     >
                       <Calendar className="w-4 h-4" />
@@ -442,10 +497,10 @@ const Profile = () => {
                     </button>
                     <button
                       onClick={() => handleTabChange('service-bookings')}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-shadow ${
                         activeTab === 'service-bookings'
-                          ? 'bg-stone-800 text-white'
-                          : 'text-stone-600 hover:bg-stone-100'
+                          ? 'bg-[#d7d0bf] text-[#1f241f] hover:shadow-lg'
+                          : 'text-[#c9c3b6] hover:shadow-lg'
                       }`}
                     >
                       <Star className="w-4 h-4" />
@@ -453,10 +508,10 @@ const Profile = () => {
                     </button>
                     <button
                       onClick={() => handleTabChange('payments')}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-shadow ${
                         activeTab === 'payments' 
-                          ? 'bg-stone-800 text-white' 
-                          : 'text-stone-600 hover:bg-stone-100'
+                          ? 'bg-[#d7d0bf] text-[#1f241f] hover:shadow-lg'
+                          : 'text-[#c9c3b6] hover:shadow-lg'
                       }`}
                     >
                       <CreditCard className="w-4 h-4" />
@@ -464,10 +519,10 @@ const Profile = () => {
                     </button>
                     <button
                       onClick={() => handleTabChange('notifications')}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-shadow ${
                         activeTab === 'notifications' 
-                          ? 'bg-stone-800 text-white' 
-                          : 'text-stone-600 hover:bg-stone-100'
+                          ? 'bg-[#d7d0bf] text-[#1f241f] hover:shadow-lg'
+                          : 'text-[#c9c3b6] hover:shadow-lg'
                       }`}
                     >
                       <Bell className="w-4 h-4" />
@@ -480,10 +535,10 @@ const Profile = () => {
                     </button>
                     <button
                       onClick={() => handleTabChange('settings')}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-shadow ${
                         activeTab === 'settings' 
-                          ? 'bg-stone-800 text-white' 
-                          : 'text-stone-600 hover:bg-stone-100'
+                          ? 'bg-[#d7d0bf] text-[#1f241f] hover:shadow-lg'
+                          : 'text-[#c9c3b6] hover:shadow-lg'
                       }`}
                     >
                       <Settings className="w-4 h-4" />
@@ -496,7 +551,7 @@ const Profile = () => {
               {/* Logout */}
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors text-sm font-medium border border-red-200"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#343a30] text-[#efece6] rounded-xl hover:bg-[#3f463a] transition-colors text-sm font-medium border border-[#4b5246]"
               >
                 <LogOut className="w-4 h-4" />
                 Logout
@@ -506,7 +561,7 @@ const Profile = () => {
               {user.role === 'admin' && (
                 <button
                   onClick={() => navigate('/admin')}
-                  className="w-full mt-4 px-4 py-2.5 bg-stone-800 text-white rounded-xl hover:bg-stone-900 transition-colors text-sm font-medium"
+                  className="w-full mt-4 px-4 py-2.5 bg-[#d7d0bf] text-[#1f241f] rounded-xl hover:bg-[#e5ddca] transition-colors text-sm font-medium"
                 >
                   Admin Dashboard
                 </button>
@@ -515,21 +570,21 @@ const Profile = () => {
           </div>
 
           {/* Main Content */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 pl-0 lg:pl-8">
             {/* Profile Tab */}
             {activeTab === 'profile' && (
-              <div className="bg-white rounded-3xl shadow-xl p-6">
+              <div className="bg-[#2f3a32]/90 border border-[#4b5246] rounded-3xl shadow-xl p-6 pl-8 lg:p-8 lg:pl-10">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                   <div>
-                    <h2 className="text-xl font-bold text-stone-800">Personal Details</h2>
-                    <p className="text-sm text-stone-600 mt-1">Manage your account information</p>
+                    <h2 className="text-xl font-bold text-[#efece6]">Personal Details</h2>
+                    <p className="text-sm text-[#c9c3b6] mt-1">Manage your account information</p>
                   </div>
                   {!isEditing ? (
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => setIsEditing(true)}
-                      className="rounded-xl border-stone-300 text-stone-700 hover:bg-stone-100"
+                      className="rounded-xl border-[#4b5246]  bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6]"
                     >
                       <Edit2 className="w-4 h-4 mr-2" />
                       Edit Profile
@@ -540,7 +595,7 @@ const Profile = () => {
                         variant="outline" 
                         size="sm" 
                         onClick={handleCancelEdit}
-                        className="rounded-xl border-stone-300 text-stone-700 hover:bg-stone-100"
+                        className="rounded-xl border-[#4b5246] bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6]"
                       >
                         <X className="w-4 h-4 mr-2" />
                         Cancel
@@ -548,7 +603,7 @@ const Profile = () => {
                       <Button 
                         size="sm" 
                         onClick={handleSaveProfile}
-                        className="rounded-xl bg-stone-800 hover:bg-stone-900 text-white"
+                        className="rounded-xl bg-[#d7d0bf] hover:bg-[#e5ddca] text-[#1f241f]"
                       >
                         <Save className="w-4 h-4 mr-2" />
                         Save
@@ -559,62 +614,62 @@ const Profile = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Name */}
-                  <div className="p-4 bg-stone-50 rounded-xl border border-stone-200">
-                    <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">Full Name</label>
+                  <div className="p-4 bg-[#343a30] rounded-xl border border-[#4b5246] hover:shadow-lg transition-shadow">
+                    <label className="text-xs font-medium text-[#c9c3b6] uppercase tracking-wider">Full Name</label>
                     {isEditing ? (
                       <Input
                         value={editedName}
                         onChange={(e) => setEditedName(e.target.value)}
-                        className="mt-1 border-stone-300 focus:border-stone-500 focus:ring-stone-500"
+                        className="mt-1 border-[#4b5246] focus:border-[#c9c3b6] focus:ring-[#c9c3b6] bg-[#2f3530] text-[#efece6]"
                       />
                     ) : (
                       <div className="flex items-center gap-2 mt-1">
-                        <User className="w-4 h-4 text-stone-400" />
-                        <span className="font-medium text-stone-800">{user.name}</span>
+                        <User className="w-4 h-4 text-[#c9c3b6]" />
+                        <span className="font-medium text-[#efece6]">{user.name}</span>
                       </div>
                     )}
                   </div>
 
                   {/* Email */}
-                  <div className="p-4 bg-stone-50 rounded-xl border border-stone-200">
-                    <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">Email Address</label>
+                  <div className="p-4 bg-[#343a30] rounded-xl border border-[#4b5246] hover:shadow-lg transition-shadow">
+                    <label className="text-xs font-medium text-[#c9c3b6] uppercase tracking-wider">Email Address</label>
                     {isEditing ? (
                       <Input
                         type="email"
                         value={editedEmail}
                         onChange={(e) => setEditedEmail(e.target.value)}
-                        className="mt-1 border-stone-300 focus:border-stone-500 focus:ring-stone-500"
+                        className="mt-1 border-[#4b5246] focus:border-[#c9c3b6] focus:ring-[#c9c3b6] bg-[#2f3530] text-[#efece6]"
                       />
                     ) : (
                       <div className="flex items-center gap-2 mt-1">
-                        <Mail className="w-4 h-4 text-stone-400" />
-                        <span className="font-medium text-stone-800">{user.email}</span>
+                        <Mail className="w-4 h-4 text-[#c9c3b6]" />
+                        <span className="font-medium text-[#efece6]">{user.email}</span>
                       </div>
                     )}
                   </div>
 
                   {/* Phone */}
-                  <div className="p-4 bg-stone-50 rounded-xl border border-stone-200">
-                    <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">Phone Number</label>
+                  <div className="p-4 bg-[#343a30] rounded-xl border border-[#4b5246] hover:shadow-lg transition-shadow">
+                    <label className="text-xs font-medium text-[#c9c3b6] uppercase tracking-wider">Phone Number</label>
                     {isEditing ? (
                       <Input
                         type="tel"
                         value={editedPhone}
                         onChange={(e) => setEditedPhone(e.target.value)}
-                        className="mt-1 border-stone-300 focus:border-stone-500 focus:ring-stone-500"
+                        className="mt-1 border-[#4b5246] focus:border-[#c9c3b6] focus:ring-[#c9c3b6] bg-[#2f3530] text-[#efece6]"
                       />
                     ) : (
                       <div className="flex items-center gap-2 mt-1">
-                        <Phone className="w-4 h-4 text-stone-400" />
-                        <span className="font-medium text-stone-800">{user.phone || 'Not provided'}</span>
+                        <Phone className="w-4 h-4 text-[#c9c3b6]" />
+                        <span className="font-medium text-[#efece6]">{user.phone || 'Not provided'}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-stone-200">
-                  <h3 className="text-lg font-semibold text-stone-800 mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-stone-700" />
+                <div className="mt-6 pt-6 border-t border-[#4b5246]">
+                  <h3 className="text-lg font-semibold text-[#efece6] mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-[#d7d0bf]" />
                     {isAdmin ? 'Booking Overview' : 'Your Journey'}
                   </h3>
                   {adminBookingsError && isAdmin && (
@@ -623,27 +678,27 @@ const Profile = () => {
                     </div>
                   )}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-stone-800 p-4 rounded-xl text-white">
+                    <div className="bg-[#343a30] p-4 rounded-xl text-[#efece6] hover:shadow-lg transition-shadow">
                       <div className="text-2xl font-bold mb-1">
                         {isAdmin ? adminBookingsState.length : bookings.length}
                       </div>
-                      <p className="text-sm text-stone-300">Total Bookings</p>
+                      <p className="text-sm text-[#c9c3b6]">Total Bookings</p>
                     </div>
-                    <div className="bg-stone-700 p-4 rounded-xl text-white">
+                    <div className="bg-[#2f3530] p-4 rounded-xl text-[#efece6] hover:shadow-lg transition-shadow">
                       <div className="text-2xl font-bold mb-1">
                         {isAdmin
                           ? adminBookingsState.filter(b => b.status === 'confirmed').length
                           : bookings.filter(b => b.status === 'confirmed').length}
                       </div>
-                      <p className="text-sm text-stone-300">Active Bookings</p>
+                      <p className="text-sm text-[#c9c3b6]">Active Bookings</p>
                     </div>
-                    <div className="bg-stone-600 p-4 rounded-xl text-white">
+                    <div className="bg-[#2a3027] p-4 rounded-xl text-[#efece6] hover:shadow-lg transition-shadow">
                       <div className="text-2xl font-bold mb-1">
                         {isAdmin
                           ? adminBookingsState.filter(b => b.status === 'checked-out').length
                           : bookings.filter(b => b.status === 'checked-out').length}
                       </div>
-                      <p className="text-sm text-stone-300">Completed Stays</p>
+                      <p className="text-sm text-[#c9c3b6]">Completed Stays</p>
                     </div>
                   </div>
                 </div>
@@ -652,20 +707,20 @@ const Profile = () => {
 
             {/* Bookings Tab */}
             {!isAdmin && activeTab === 'bookings' && (
-              <div className="bg-white rounded-3xl shadow-xl p-6">
+              <div className="bg-[#2f3a32]/90 border border-[#4b5246] rounded-3xl shadow-xl p-6 lg:p-8">
                 <div className="mb-6">
-                  <h2 className="text-xl font-bold text-stone-800">My Bookings</h2>
-                  <p className="text-sm text-stone-600 mt-1">Manage your reservations</p>
+                  <h2 className="text-xl font-bold text-[#efece6]">My Bookings</h2>
+                  <p className="text-sm text-[#c9c3b6] mt-1">Manage your reservations</p>
                 </div>
 
                 {bookings.length === 0 ? (
                   <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Calendar className="w-8 h-8 text-stone-700" />
+                    <div className="w-16 h-16 bg-[#343a30] rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-8 h-8 text-[#d7d0bf]" />
                     </div>
-                    <h3 className="text-lg font-medium text-stone-800 mb-2">No bookings yet</h3>
-                    <p className="text-stone-600 mb-6">Start your journey with us today</p>
-                    <Button onClick={() => navigate('/rooms')} className="bg-stone-800 hover:bg-stone-900 text-white rounded-xl h-12 px-6">
+                    <h3 className="text-lg font-medium text-[#efece6] mb-2">No bookings yet</h3>
+                    <p className="text-[#c9c3b6] mb-6">Start your journey with us today</p>
+                    <Button onClick={() => navigate('/rooms')} className="bg-[#d7d0bf] hover:bg-[#e5ddca] text-[#1f241f] rounded-xl h-12 px-6">
                       <MapPin className="w-4 h-4 mr-2" />
                       Browse Rooms
                     </Button>
@@ -675,12 +730,12 @@ const Profile = () => {
                     {bookings.map((booking) => {
                       const room = roomsState.find(r => r.id === booking.roomId);
                       return (
-                        <div key={booking.id} className="border border-stone-200 rounded-xl p-4 hover:shadow-lg transition-shadow bg-white">
+                        <div key={booking.id} className="border border-[#4b5246] rounded-xl p-4 hover:shadow-lg transition-shadow bg-[#343a30]">
                           <div className="flex flex-col lg:flex-row gap-4">
                             <img
                               src={resolveImageUrl(room?.images?.[0] || '')}
                               alt={room?.name || 'Room'}
-                              className="w-full lg:w-48 h-32 object-cover rounded-lg"
+                              className="w-full lg:w-48 h-40 sm:h-32 object-cover rounded-lg"
                               onError={(e) => {
                                 e.currentTarget.src = 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=400';
                               }}
@@ -688,8 +743,8 @@ const Profile = () => {
                             <div className="flex-1">
                               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
                                 <div>
-                                  <h3 className="font-semibold text-stone-800">{room?.name || 'Room'}</h3>
-                                  <p className="text-xs text-stone-500">ID: {booking.id.slice(0, 8)}</p>
+                                  <h3 className="font-semibold text-[#efece6]">{room?.name || 'Room'}</h3>
+                                  <p className="text-xs text-[#c9c3b6]">ID: {booking.id.slice(0, 8)}</p>
                                 </div>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[booking.status]}`}>
                                   {booking.status.charAt(0).toUpperCase() + booking.status.slice(1).replace('-', ' ')}
@@ -698,19 +753,19 @@ const Profile = () => {
 
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3 text-sm">
                                 <div>
-                                  <p className="text-stone-500">Check-in</p>
-                                  <p className="font-medium text-stone-800">{format(booking.checkIn, 'MMM dd, yyyy')}</p>
+                                  <p className="text-[#c9c3b6]">Check-in</p>
+                                  <p className="font-medium text-[#efece6]">{format(booking.checkIn, 'MMM dd, yyyy')}</p>
                                 </div>
                                 <div>
-                                  <p className="text-stone-500">Check-out</p>
-                                  <p className="font-medium text-stone-800">{format(booking.checkOut, 'MMM dd, yyyy')}</p>
+                                  <p className="text-[#c9c3b6]">Check-out</p>
+                                  <p className="font-medium text-[#efece6]">{format(booking.checkOut, 'MMM dd, yyyy')}</p>
                                 </div>
                                 <div>
-                                  <p className="text-stone-500">Guests</p>
-                                  <p className="font-medium text-stone-800">{booking.guests}</p>
+                                  <p className="text-[#c9c3b6]">Guests</p>
+                                  <p className="font-medium text-[#efece6]">{booking.guests}</p>
                                 </div>
                                 <div>
-                                  <p className="text-stone-500">Total</p>
+                                  <p className="text-[#c9c3b6]">Total</p>
                                   <p className="font-bold text-emerald-600">${booking.totalPrice.toFixed(2)}</p>
                                 </div>
                               </div>
@@ -727,26 +782,35 @@ const Profile = () => {
                                     Check In
                                   </Button>
                                 )}
-                                {booking.status === 'checked-in' && (
-                                  <Button 
-                                    size="sm" 
-                                    onClick={() => navigate(`/checkout/${booking.id}`)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                                {booking.status === 'checked-in' && booking.paymentStatus !== 'paid' && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => navigate(`/payment/${booking.id}`)}
+                                    className="bg-[#d7d0bf] hover:bg-[#e5ddca] text-[#1f241f] rounded-lg"
                                   >
-                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                                    Check Out
+                                    Pay Now
+                                  </Button>
+                                )}
+                                {booking.status === 'checked-in' && booking.paymentStatus === 'paid' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled
+                                    className="rounded-lg border-emerald-200 text-emerald-700"
+                                  >
+                                    Paid
                                   </Button>
                                 )}
                                 {booking.idVerified === 'approved' && booking.paymentStatus !== 'paid' && booking.status === 'confirmed' && (
                                   <Button
                                     size="sm"
                                     onClick={() => navigate(`/payment/${booking.id}`)}
-                                    className="bg-stone-900 hover:bg-stone-950 text-white rounded-lg"
+                                    className="bg-[#d7d0bf] hover:bg-[#e5ddca] text-[#1f241f] rounded-lg"
                                   >
                                     Pay Now
                                   </Button>
                                 )}
-                                {booking.paymentStatus === 'paid' && (
+                                {booking.paymentStatus === 'paid' && booking.status === 'confirmed' && (
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -760,7 +824,7 @@ const Profile = () => {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => navigate(`/booking-details/${booking.id}`)}
-                                  className="rounded-lg border-stone-300 text-stone-700 hover:bg-stone-100"
+                                  className="rounded-lg border-[#4b5246] bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6]"
                                 >
                                   View Details
                                 </Button>
@@ -803,30 +867,30 @@ const Profile = () => {
 
             {/* Service Bookings Tab */}
             {!isAdmin && activeTab === 'service-bookings' && (
-              <div className="bg-white rounded-3xl shadow-xl p-6">
+              <div className="bg-[#2f3a32]/90 border border-[#4b5246] rounded-3xl shadow-xl p-6 lg:p-8">
                 <div className="mb-6">
-                  <h2 className="text-xl font-bold text-stone-800">My Service Bookings</h2>
-                  <p className="text-sm text-stone-600 mt-1">Your dining, spa, and lounge reservations</p>
+                  <h2 className="text-xl font-bold text-[#efece6]">My Service Bookings</h2>
+                  <p className="text-sm text-[#c9c3b6] mt-1">Your dining, spa, and lounge reservations</p>
                 </div>
 
                 {serviceBookingsLoading ? (
-                  <div className="text-sm text-stone-500">Loading service bookings...</div>
+                  <div className="text-sm text-[#c9c3b6]">Loading service bookings...</div>
                 ) : serviceBookingsState.length === 0 ? (
                   <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Calendar className="w-8 h-8 text-stone-700" />
+                    <div className="w-16 h-16 bg-[#343a30] rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-8 h-8 text-[#d7d0bf]" />
                     </div>
-                    <h3 className="text-lg font-medium text-stone-800 mb-2">No service bookings yet</h3>
-                    <p className="text-stone-600">Reserve a dining or spa experience to see it here</p>
+                    <h3 className="text-lg font-medium text-[#efece6] mb-2">No service bookings yet</h3>
+                    <p className="text-[#c9c3b6]">Reserve a dining or spa experience to see it here</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {serviceBookingsState.map((booking) => (
-                      <div key={booking.id} className="border border-stone-200 rounded-xl p-4 hover:shadow-md transition-shadow bg-white">
+                      <div key={booking.id} className="border border-[#4b5246] rounded-xl p-4 hover:shadow-md transition-shadow bg-[#343a30]">
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                           <div>
-                            <h3 className="font-semibold text-stone-800">{booking.serviceName}</h3>
-                            <p className="text-xs text-stone-500">Category: {booking.category}</p>
+                            <h3 className="font-semibold text-[#efece6]">{booking.serviceName}</h3>
+                            <p className="text-xs text-[#c9c3b6]">Category: {booking.category}</p>
                           </div>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[booking.status]}`}>
                             {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
@@ -835,26 +899,26 @@ const Profile = () => {
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 text-sm">
                           <div>
-                            <p className="text-stone-500">Date</p>
-                            <p className="font-medium text-stone-800">{format(booking.date, 'MMM dd, yyyy')}</p>
+                            <p className="text-[#c9c3b6]">Date</p>
+                            <p className="font-medium text-[#efece6]">{format(booking.date, 'MMM dd, yyyy')}</p>
                           </div>
                           <div>
-                            <p className="text-stone-500">Time</p>
-                            <p className="font-medium text-stone-800">{booking.time}</p>
+                            <p className="text-[#c9c3b6]">Time</p>
+                            <p className="font-medium text-[#efece6]">{booking.time}</p>
                           </div>
                           <div>
-                            <p className="text-stone-500">Guests</p>
-                            <p className="font-medium text-stone-800">{booking.guests}</p>
+                            <p className="text-[#c9c3b6]">Guests</p>
+                            <p className="font-medium text-[#efece6]">{booking.guests}</p>
                           </div>
                           <div>
-                            <p className="text-stone-500">Price Range</p>
-                            <p className="font-medium text-stone-800">{booking.priceRange || '—'}</p>
+                            <p className="text-[#c9c3b6]">Price Range</p>
+                            <p className="font-medium text-[#efece6]">{booking.priceRange || '—'}</p>
                           </div>
                         </div>
 
                         {booking.specialRequests && (
-                          <div className="mt-3 text-sm text-stone-600">
-                            <span className="font-medium text-stone-700">Special requests:</span> {booking.specialRequests}
+                          <div className="mt-3 text-sm text-[#c9c3b6]">
+                            <span className="font-medium text-[#d7d0bf]">Special requests:</span> {booking.specialRequests}
                           </div>
                         )}
                       </div>
@@ -872,28 +936,28 @@ const Profile = () => {
 
             {/* Payments Tab */}
             {!isAdmin && activeTab === 'payments' && (
-              <div className="bg-white rounded-3xl shadow-xl p-6">
+              <div className="bg-[#2f3a32]/90 border border-[#4b5246] rounded-3xl shadow-xl p-6 lg:p-8">
                 <div className="mb-6">
-                  <h2 className="text-xl font-bold text-stone-800">Payment History</h2>
-                  <p className="text-sm text-stone-600 mt-1">View your transaction records</p>
+                  <h2 className="text-xl font-bold text-[#efece6]">Payment History</h2>
+                  <p className="text-sm text-[#c9c3b6] mt-1">View your transaction records</p>
                 </div>
 
                 {bookings.filter(b => b.paymentStatus === 'paid').length === 0 ? (
                   <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CreditCard className="w-8 h-8 text-stone-700" />
+                    <div className="w-16 h-16 bg-[#343a30] rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CreditCard className="w-8 h-8 text-[#d7d0bf]" />
                     </div>
-                    <h3 className="text-lg font-medium text-stone-800 mb-2">No payments yet</h3>
-                    <p className="text-stone-600">Your payment history will appear here</p>
+                    <h3 className="text-lg font-medium text-[#efece6] mb-2">No payments yet</h3>
+                    <p className="text-[#c9c3b6]">Your payment history will appear here</p>
                   </div>
                 ) : (
                   <>
-                    <div className="bg-stone-800 rounded-xl p-4 text-white mb-4">
-                      <p className="text-sm text-stone-300 mb-1">Total Spent</p>
+                    <div className="bg-[#343a30] rounded-xl p-4 text-[#efece6] mb-4">
+                      <p className="text-sm text-[#c9c3b6] mb-1">Total Spent</p>
                       <p className="text-2xl font-bold">
                         ${bookings.filter(b => b.paymentStatus === 'paid').reduce((sum, b) => sum + b.totalPrice, 0).toFixed(2)}
                       </p>
-                      <p className="text-xs text-stone-400 mt-1">
+                      <p className="text-xs text-[#c9c3b6] mt-1">
                         Across {bookings.filter(b => b.paymentStatus === 'paid').length} transactions
                       </p>
                     </div>
@@ -902,15 +966,15 @@ const Profile = () => {
                       {bookings.filter(b => b.paymentStatus === 'paid').map((booking) => {
                         const room = roomsState.find(r => r.id === booking.roomId);
                         return (
-                          <div key={booking.id} className="border border-stone-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                          <div key={booking.id} className="border border-[#4b5246] rounded-xl p-4 hover:shadow-md transition-shadow bg-[#343a30]">
                             <div className="flex justify-between items-start">
                               <div className="flex gap-3">
-                                <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center">
-                                  <CreditCard className="w-5 h-5 text-stone-700" />
+                                <div className="w-10 h-10 bg-[#2f3530] rounded-lg flex items-center justify-center">
+                                  <CreditCard className="w-5 h-5 text-[#d7d0bf]" />
                                 </div>
                                 <div>
-                                  <h3 className="font-medium text-stone-800">{room?.name || 'Room Booking'}</h3>
-                                  <p className="text-xs text-stone-500 mt-1">
+                                  <h3 className="font-medium text-[#efece6]">{room?.name || 'Room Booking'}</h3>
+                                  <p className="text-xs text-[#c9c3b6] mt-1">
                                     {format(booking.checkIn, 'MMM dd')} - {format(booking.checkOut, 'MMM dd, yyyy')}
                                   </p>
                                 </div>
@@ -934,10 +998,10 @@ const Profile = () => {
 
             {/* Notifications Tab */}
             {!isAdmin && activeTab === 'notifications' && (
-              <div className="bg-white rounded-3xl shadow-xl p-6">
+              <div className="bg-[#2f3a32]/90 border border-[#4b5246] rounded-3xl shadow-xl p-6 lg:p-8">
                 <div className="mb-6">
-                  <h2 className="text-xl font-bold text-stone-800">Notifications</h2>
-                  <p className="text-sm text-stone-600 mt-1">Stay updated with your bookings</p>
+                  <h2 className="text-xl font-bold text-[#efece6]">Notifications</h2>
+                  <p className="text-sm text-[#c9c3b6] mt-1">Stay updated with your bookings</p>
                 </div>
 
                 <div className="space-y-3">
@@ -946,34 +1010,34 @@ const Profile = () => {
                     const notificationStyles = {
                       'confirmed': { bg: 'bg-emerald-100', text: 'text-emerald-700' },
                       'checked-in': { bg: 'bg-blue-100', text: 'text-blue-700' },
-                      'checked-out': { bg: 'bg-stone-200', text: 'text-stone-700' },
+                      'checked-out': { bg: 'bg-[#343a30]', text: 'text-[#efece6]' },
                       'cancelled': { bg: 'bg-red-100', text: 'text-red-700' },
                       'pending': { bg: 'bg-amber-100', text: 'text-amber-700' }
                     };
-                    const style = notificationStyles[booking.status] || { bg: 'bg-stone-100', text: 'text-stone-700' };
+                    const style = notificationStyles[booking.status] || { bg: 'bg-[#2f3530]', text: 'text-[#d7d0bf]' };
 
                     return (
-                      <div key={booking.id} className="flex gap-3 p-4 border border-stone-200 rounded-xl hover:shadow-md transition-shadow">
+                      <div key={booking.id} className="flex gap-3 p-4 border border-[#4b5246] rounded-xl hover:shadow-md transition-shadow bg-[#343a30]">
                         <div className={`w-10 h-10 ${style.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
                           <Bell className={`w-5 h-5 ${style.text}`} />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-stone-800">
+                            <h4 className="font-medium text-[#efece6]">
                               Booking {booking.status.charAt(0).toUpperCase() + booking.status.slice(1).replace('-', ' ')}
                             </h4>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[booking.status]}`}>
                               {booking.status}
                             </span>
                           </div>
-                          <p className="text-sm text-stone-600 mb-1">
+                          <p className="text-sm text-[#c9c3b6] mb-1">
                             {booking.status === 'confirmed' && `Your reservation for ${room?.name} has been confirmed.`}
                             {booking.status === 'checked-in' && `Welcome to ${room?.name}. Enjoy your stay!`}
                             {booking.status === 'checked-out' && `Thank you for staying at ${room?.name}.`}
                             {booking.status === 'cancelled' && `Your booking for ${room?.name} has been cancelled.`}
                             {booking.status === 'pending' && `Your booking request for ${room?.name} is being processed.`}
                           </p>
-                          <p className="text-xs text-stone-500">
+                          <p className="text-xs text-[#c9c3b6]">
                             {format(booking.bookingDate, 'MMM dd, yyyy • h:mm a')}
                           </p>
                         </div>
@@ -982,11 +1046,11 @@ const Profile = () => {
                   })}
                   {bookings.length === 0 && (
                     <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Bell className="w-8 h-8 text-stone-700" />
+                      <div className="w-16 h-16 bg-[#343a30] rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Bell className="w-8 h-8 text-[#d7d0bf]" />
                       </div>
-                      <h3 className="text-lg font-medium text-stone-800 mb-2">No notifications</h3>
-                      <p className="text-stone-600">You're all caught up!</p>
+                      <h3 className="text-lg font-medium text-[#efece6] mb-2">No notifications</h3>
+                      <p className="text-[#c9c3b6]">You're all caught up!</p>
                     </div>
                   )}
                 </div>
@@ -995,58 +1059,58 @@ const Profile = () => {
 
             {/* Settings Tab */}
             {!isAdmin && activeTab === 'settings' && (
-              <div className="bg-white rounded-3xl shadow-xl p-6">
+              <div className="bg-[#2f3a32]/90 border border-[#4b5246] rounded-3xl shadow-xl p-6 lg:p-8">
                 <div className="mb-6">
-                  <h2 className="text-xl font-bold text-stone-800">Settings</h2>
-                  <p className="text-sm text-stone-600 mt-1">Manage your preferences</p>
+                  <h2 className="text-xl font-bold text-[#efece6]">Settings</h2>
+                  <p className="text-sm text-[#c9c3b6] mt-1">Manage your preferences</p>
                 </div>
 
                 <div className="space-y-6">
                   {/* Notification Preferences */}
-                  <div className="border border-stone-200 rounded-xl p-4">
+                  <div className="border border-[#4b5246] rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-4">
-                      <Bell className="w-5 h-5 text-stone-700" />
-                      <h3 className="font-semibold text-stone-800">Notification Preferences</h3>
+                      <Bell className="w-5 h-5 text-[#d7d0bf]" />
+                      <h3 className="font-semibold text-[#efece6]">Notification Preferences</h3>
                     </div>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                      <div className="flex items-center justify-between p-3 bg-[#343a30] rounded-lg">
                         <div className="flex items-center gap-3">
-                          <Mail className="w-4 h-4 text-stone-500" />
+                          <Mail className="w-4 h-4 text-[#c9c3b6]" />
                           <div>
-                            <p className="font-medium text-sm text-stone-800">Email Notifications</p>
-                            <p className="text-xs text-stone-600">Receive updates via email</p>
+                            <p className="font-medium text-sm text-[#efece6]">Email Notifications</p>
+                            <p className="text-xs text-[#c9c3b6]">Receive updates via email</p>
                           </div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" defaultChecked className="sr-only peer" />
-                          <div className="w-10 h-5 bg-stone-300 rounded-full peer peer-checked:bg-stone-800 peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                          <div className="w-10 h-5 bg-[#4b5246] rounded-full peer peer-checked:bg-[#d7d0bf] peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
                         </label>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                      <div className="flex items-center justify-between p-3 bg-[#343a30] rounded-lg">
                         <div className="flex items-center gap-3">
-                          <Phone className="w-4 h-4 text-stone-500" />
+                          <Phone className="w-4 h-4 text-[#c9c3b6]" />
                           <div>
-                            <p className="font-medium text-sm text-stone-800">SMS Notifications</p>
-                            <p className="text-xs text-stone-600">Get text messages for updates</p>
+                            <p className="font-medium text-sm text-[#efece6]">SMS Notifications</p>
+                            <p className="text-xs text-[#c9c3b6]">Get text messages for updates</p>
                           </div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" className="sr-only peer" />
-                          <div className="w-10 h-5 bg-stone-300 rounded-full peer peer-checked:bg-stone-800 peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                          <div className="w-10 h-5 bg-[#4b5246] rounded-full peer peer-checked:bg-[#d7d0bf] peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
                         </label>
                       </div>
                     </div>
                   </div>
 
                   {/* Privacy & Security */}
-                  <div className="border border-stone-200 rounded-xl p-4">
+                  <div className="border border-[#4b5246] rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-4">
-                      <Shield className="w-5 h-5 text-stone-700" />
-                      <h3 className="font-semibold text-stone-800">Privacy & Security</h3>
+                      <Shield className="w-5 h-5 text-[#d7d0bf]" />
+                      <h3 className="font-semibold text-[#efece6]">Privacy & Security</h3>
                     </div>
                     <div className="space-y-2">
                       <button
-                        className="w-full text-left p-3 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors"
+                        className="w-full text-left p-3 bg-[#343a30] rounded-lg hover:bg-[#3f463a] transition-colors"
                         onClick={() => {
                           setIsSecurityOpen((prev) => !prev);
                           setSecurityError(null);
@@ -1055,16 +1119,16 @@ const Profile = () => {
                         <div className="flex items-center gap-3">
                           <AlertCircle className="w-4 h-4 text-amber-600" />
                           <div>
-                            <p className="font-medium text-sm text-stone-800">Change Password</p>
-                            <p className="text-xs text-stone-600">Update your login credentials</p>
+                            <p className="font-medium text-sm text-[#efece6]">Change Password</p>
+                            <p className="text-xs text-[#c9c3b6]">Update your login credentials</p>
                           </div>
                         </div>
                       </button>
                       {isSecurityOpen && (
-                        <div className="rounded-lg border border-stone-200 bg-white p-4">
+                        <div className="rounded-lg border border-[#4b5246] bg-[#2f3530] p-4">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="sm:col-span-2">
-                              <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">
+                              <label className="text-xs font-medium text-[#c9c3b6] uppercase tracking-wider">
                                 Current Password
                               </label>
                               <Input
@@ -1073,11 +1137,11 @@ const Profile = () => {
                                 onChange={(e) =>
                                   setSecurityForm((prev) => ({ ...prev, currentPassword: e.target.value }))
                                 }
-                                className="mt-1 border-stone-300 focus:border-stone-500 focus:ring-stone-500"
+                                className="mt-1 border-[#4b5246] focus:border-[#c9c3b6] focus:ring-[#c9c3b6] bg-[#2f3530] text-[#efece6]"
                               />
                             </div>
                             <div>
-                              <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">
+                              <label className="text-xs font-medium text-[#c9c3b6] uppercase tracking-wider">
                                 New Password
                               </label>
                               <Input
@@ -1086,11 +1150,11 @@ const Profile = () => {
                                 onChange={(e) =>
                                   setSecurityForm((prev) => ({ ...prev, newPassword: e.target.value }))
                                 }
-                                className="mt-1 border-stone-300 focus:border-stone-500 focus:ring-stone-500"
+                                className="mt-1 border-[#4b5246] focus:border-[#c9c3b6] focus:ring-[#c9c3b6] bg-[#2f3530] text-[#efece6]"
                               />
                             </div>
                             <div>
-                              <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">
+                              <label className="text-xs font-medium text-[#c9c3b6] uppercase tracking-wider">
                                 Confirm Password
                               </label>
                               <Input
@@ -1099,7 +1163,7 @@ const Profile = () => {
                                 onChange={(e) =>
                                   setSecurityForm((prev) => ({ ...prev, confirmPassword: e.target.value }))
                                 }
-                                className="mt-1 border-stone-300 focus:border-stone-500 focus:ring-stone-500"
+                                className="mt-1 border-[#4b5246] focus:border-[#c9c3b6] focus:ring-[#c9c3b6] bg-[#2f3530] text-[#efece6]"
                               />
                             </div>
                           </div>
@@ -1113,7 +1177,7 @@ const Profile = () => {
                               size="sm"
                               onClick={handlePasswordUpdate}
                               disabled={isSavingPassword}
-                              className="rounded-xl bg-stone-800 hover:bg-stone-900 text-white"
+                              className="rounded-xl bg-[#d7d0bf] hover:bg-[#e5ddca] text-[#1f241f]"
                             >
                               {isSavingPassword ? 'Updating...' : 'Update Password'}
                             </Button>
@@ -1124,7 +1188,7 @@ const Profile = () => {
                                 setIsSecurityOpen(false);
                                 setSecurityError(null);
                               }}
-                              className="rounded-xl border-stone-300 text-stone-700 hover:bg-stone-100"
+                              className="rounded-xl border-[#4b5246] text-[#efece6] hover:bg-[#343a30]"
                             >
                               Cancel
                             </Button>
@@ -1132,15 +1196,15 @@ const Profile = () => {
                         </div>
                       )}
                       <button
-                        className="w-full text-left p-3 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors"
+                        className="w-full text-left p-3 bg-[#343a30] rounded-lg hover:bg-[#3f463a] transition-colors"
                         onClick={() => setIsTwoFactorOpen((prev) => !prev)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <Settings className="w-4 h-4 text-emerald-600" />
                             <div>
-                              <p className="font-medium text-sm text-stone-800">Two-Factor Authentication</p>
-                              <p className="text-xs text-stone-600">Add extra security layer</p>
+                              <p className="font-medium text-sm text-[#efece6]">Two-Factor Authentication</p>
+                              <p className="text-xs text-[#c9c3b6]">Add extra security layer</p>
                             </div>
                           </div>
                           <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">
@@ -1149,13 +1213,13 @@ const Profile = () => {
                         </div>
                       </button>
                       {isTwoFactorOpen && (
-                        <div className="rounded-lg border border-stone-200 bg-white p-4">
+                        <div className="rounded-lg border border-[#4b5246] bg-[#2f3530] p-4">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div>
-                              <p className="text-sm font-medium text-stone-800">
+                              <p className="text-sm font-medium text-[#efece6]">
                                 {twoFactorEnabled ? 'Two-factor is enabled.' : 'Two-factor is disabled.'}
                               </p>
-                              <p className="text-xs text-stone-600">
+                              <p className="text-xs text-[#c9c3b6]">
                                 This stores a security preference for your account.
                               </p>
                             </div>
@@ -1163,7 +1227,7 @@ const Profile = () => {
                               size="sm"
                               onClick={handleTwoFactorToggle}
                               disabled={isSavingTwoFactor}
-                              className="rounded-xl bg-stone-800 hover:bg-stone-900 text-white"
+                              className="rounded-xl bg-[#d7d0bf] hover:bg-[#e5ddca] text-[#1f241f]"
                             >
                               {isSavingTwoFactor
                                 ? 'Saving...'
@@ -1178,7 +1242,7 @@ const Profile = () => {
                   </div>
 
                   {/* Danger Zone */}
-                  <div className="border border-red-200 rounded-xl p-4 bg-red-50">
+                  <div className="border border-red-300/60 rounded-xl p-4 bg-[#3a2f2f]">
                     <div className="flex items-center gap-2 mb-3">
                       <AlertCircle className="w-5 h-5 text-red-600" />
                       <div>
@@ -1186,10 +1250,10 @@ const Profile = () => {
                         <p className="text-xs text-red-600">These actions cannot be undone</p>
                       </div>
                     </div>
-                    <p className="text-sm text-stone-700 mb-3 p-3 bg-white rounded-lg border border-red-200">
+                    <p className="text-sm text-[#f3d1d1] mb-3 p-3 bg-[#2f2323] rounded-lg border border-red-300/60">
                       <span className="font-medium text-red-700">Warning:</span> Deleting your account will permanently remove all your data.
                     </p>
-                    <button className="w-full px-4 py-2 bg-white border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium">
+                    <button className="w-full px-4 py-2 bg-[#2f2323] border border-red-300/60 text-red-200 rounded-lg hover:bg-[#3a2f2f] transition-colors text-sm font-medium">
                       <AlertCircle className="w-4 h-4 mr-2 inline" />
                       Delete Account
                     </button>

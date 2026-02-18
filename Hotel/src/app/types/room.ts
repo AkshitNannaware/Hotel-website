@@ -6,6 +6,7 @@ export interface Room {
   type: RoomType;
   price: number;
   images: string[];
+  video?: string;
   description: string;
   amenities: string[];
   maxGuests: number;

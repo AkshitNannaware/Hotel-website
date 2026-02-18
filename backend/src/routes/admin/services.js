@@ -38,6 +38,34 @@ const uploadServiceImage = multer({
   },
 });
 
+// Setup multer for service video uploads
+const serviceVideosDir = path.join(__dirname, '..', '..', '..', 'uploads', 'services', 'videos');
+fs.mkdirSync(serviceVideosDir, { recursive: true });
+
+const serviceVideoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, serviceVideosDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '';
+    const safeExt = ext.toLowerCase();
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `service-video-${unique}${safeExt}`);
+  },
+});
+
+const uploadServiceVideo = multer({
+  storage: serviceVideoStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  fileFilter: (req, file, cb) => {
+    const allowed = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error('Invalid file type. Only MP4, WebM, OGG, and MOV videos are allowed.'));
+    }
+    cb(null, true);
+  },
+});
+
 // GET /api/services
 router.get('/', async (req, res, next) => {
   try {
@@ -51,7 +79,7 @@ router.get('/', async (req, res, next) => {
 // POST /api/services
 router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const { name, category, description, image, priceRange, availableTimes } = req.body || {};
+    const { name, category, description, image, video, priceRange, availableTimes } = req.body || {};
     if (!name || !category) {
       return res.status(400).json({ message: 'Name and category are required' });
     }
@@ -61,6 +89,7 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
       category,
       description: description || '',
       image: image || '',
+      video: video || '',
       priceRange: priceRange || '',
       availableTimes: Array.isArray(availableTimes) ? availableTimes : [],
     });
@@ -96,6 +125,31 @@ router.post('/:id/upload-image', requireAuth, requireAdmin, uploadServiceImage.s
   }
 });
 
+// POST /api/services/:id/upload-video
+router.post('/:id/upload-video', requireAuth, requireAdmin, uploadServiceVideo.single('video'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No video uploaded' });
+    }
+
+    const service = await Service.findById(req.params.id);
+    if (!service) {
+      return res.status(404).json({ message: 'Service not found' });
+    }
+
+    service.video = `/uploads/services/videos/${req.file.filename}`;
+    await service.save();
+
+    res.json({
+      message: 'Video uploaded successfully',
+      video: service.video,
+      service,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/services/:id
 router.get('/:id', async (req, res, next) => {
   try {
@@ -112,7 +166,7 @@ router.get('/:id', async (req, res, next) => {
 // PUT /api/services/:id
 router.put('/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const { name, category, description, image, priceRange, availableTimes } = req.body || {};
+    const { name, category, description, image, video, priceRange, availableTimes } = req.body || {};
     if (!name || !category) {
       return res.status(400).json({ message: 'Name and category are required' });
     }
@@ -124,6 +178,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res, next) => {
         category,
         description: description || '',
         image: image || '',
+        video: video || '',
         priceRange: priceRange || '',
         availableTimes: Array.isArray(availableTimes) ? availableTimes : [],
       },

@@ -1,9 +1,16 @@
-import React from 'react';
-import { Outlet } from 'react-router';
+import React, { useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router';
 import Header from './Header';
 import Footer from './Footer';
+import MobileBottomNav from './MobileBottomNav.tsx';
 
 const Layout = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -11,6 +18,7 @@ const Layout = () => {
         <Outlet />
       </main>
       <Footer />
+      <MobileBottomNav />
     </div>
   );
 };

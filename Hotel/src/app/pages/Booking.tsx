@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { User, Mail, Phone, CreditCard, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Phone, CreditCard, CheckCircle2, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useBooking } from '../context/BookingContext';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import type { Room } from '../types/room';
 
 const Booking = () => {
@@ -25,6 +25,12 @@ const Booking = () => {
   const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:5000';
   const [room, setRoom] = useState<Room | null>(null);
   const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
+  const fallbackRoomImage = 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=1200';
+
+  const resolveImageUrl = (imageUrl?: string) => {
+    if (!imageUrl) return fallbackRoomImage;
+    return imageUrl.startsWith('/uploads/') ? `${API_BASE}${imageUrl}` : imageUrl;
+  };
 
   // Auto-populate from logged-in user
   useEffect(() => {
@@ -147,109 +153,178 @@ const Booking = () => {
         }
       }
 
-      toast.success('Booking details saved!');
+      toast.success('Booking and ID uploaded successfully!');
       navigate(`/payment/${booking.id}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create booking';
+      const message = error instanceof Error ? error.message : 'Failed to create booking or upload ID';
       toast.error(message);
     } finally {
       setIsUploading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-stone-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">Complete Your Booking</h1>
-          <p className="text-stone-600">Just a few more details...</p>
-        </div>
+  const nights = Math.max(1, differenceInCalendarDays(new Date(currentBooking.checkOut), new Date(currentBooking.checkIn)));
+  const stayLabel = room ? `${room.name} · ${room.type} room` : 'Stay details';
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Booking Form */}
-          <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Guest Details */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100">
-                <h2 className="text-xl font-semibold mb-5 text-stone-800">Guest Details</h2>
+  // Early check-in/late check-out fee logic
+  const STANDARD_CHECKIN = '14:00';
+  const STANDARD_CHECKOUT = '12:00';
+  const EARLY_CHECKIN_FEE = 30; // Flat fee, can be changed
+  const LATE_CHECKOUT_FEE = 40; // Flat fee, can be changed
+
+  let earlyCheckInFee = 0;
+  let lateCheckOutFee = 0;
+  if (currentBooking.checkInTime && currentBooking.checkInTime < STANDARD_CHECKIN) {
+    earlyCheckInFee = EARLY_CHECKIN_FEE;
+  }
+  if (currentBooking.checkOutTime && currentBooking.checkOutTime > STANDARD_CHECKOUT) {
+    lateCheckOutFee = LATE_CHECKOUT_FEE;
+  }
+  const totalWithExtras = currentBooking.totalPrice + earlyCheckInFee + lateCheckOutFee;
+
+  return (
+    <div className="min-h-screen bg-[#3f4a40] text-[#efece6] pt-10">
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-[#3f4a40]"/>
+        <div className="absolute inset-0 opacity-20 bg-[linear-gradient(90deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:220px_100%]" />
+
+        <div className="relative max-w-6xl mx-auto px-4 py-12">
+          <div className="rounded-[2rem] border border-[#4b5246] bg-[#3a4035]/95 shadow-2xl overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-b border-[#4b5246]">
+              <div className="flex flex-wrap items-center gap-4 text-[11px] uppercase tracking-[0.25em] text-[#c9c3b6]">
+                {[
+                  'Choose Your Room',
+                  'Select Dates & Guests',
+                  'Guest Information',
+                  'Payment',
+                ].map((label, index) => {
+                  const step = index + 1;
+                  const isActive = step === 3;
+                  const isComplete = step < 3;
+                  return (
+                    <div key={label} className="flex items-center gap-3">
+                      <div
+                        className={`h-7 w-7 rounded-full border text-xs flex items-center justify-center ${
+                          isActive
+                            ? 'border-[#d7d0bf] text-[#1f241f] bg-[#d7d0bf]'
+                            : isComplete
+                            ? 'border-[#9aa191] text-[#9aa191]'
+                            : 'border-[#5b6255] text-[#c9c3b6]'
+                        }`}
+                      >
+                        {isComplete ? '✓' : step}
+                      </div>
+                      <span className={isActive ? 'text-[#efece6]' : ''}>{label}</span>
+                      {step < 4 && <span className="h-px w-8 bg-[#5b6255]" />}
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="h-9 w-9 rounded-full border border-[#5b6255] text-[#d7d0bf] hover:bg-white/10 flex items-center justify-center"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 p-6 lg:p-8">
+              <div>
+                <div className="mb-6">
+                  <h1 className="text-2xl sm:text-3xl text-[#efece6]">Guest Information</h1>
+                  <div className="h-px w-20 bg-[#5b6255] mt-3" />
+                </div>
 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="guestName" className="text-sm font-medium">Full Name *</Label>
-                    <div className="relative mt-1.5">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-600" />
+                    <Label htmlFor="guestName" className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">
+                      First and last name*
+                    </Label>
+                    <div className="relative mt-2">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#c9c3b6]" />
                       <Input
                         id="guestName"
                         type="text"
                         placeholder="Enter your full name"
                         value={guestName}
                         onChange={(e) => setGuestName(e.target.value)}
-                        className="pl-10 h-11 rounded-xl"
+                        className="pl-10 h-11 rounded-xl bg-[#343a30] border-[#4b5246] text-[#efece6] placeholder:text-[#9aa191]"
                         required
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="guestEmail" className="text-sm font-medium">Email Address *</Label>
-                    <div className="relative mt-1.5">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-600" />
+                    <Label htmlFor="guestEmail" className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">
+                      Email*
+                    </Label>
+                    <div className="relative mt-2">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#c9c3b6]" />
                       <Input
                         id="guestEmail"
                         type="email"
                         placeholder="Enter your email"
                         value={guestEmail}
                         onChange={(e) => setGuestEmail(e.target.value)}
-                        className="pl-10 h-11 rounded-xl"
+                        className="pl-10 h-11 rounded-xl bg-[#343a30] border-[#4b5246] text-[#efece6] placeholder:text-[#9aa191]"
                         required
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="guestPhone" className="text-sm font-medium">Phone Number *</Label>
-                    <div className="relative mt-1.5">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-600" />
+                    <Label htmlFor="guestPhone" className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">
+                      Phone number*
+                    </Label>
+                    <div className="relative mt-2">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#c9c3b6]" />
                       <Input
                         id="guestPhone"
                         type="tel"
                         placeholder="Enter your phone number"
                         value={guestPhone}
                         onChange={(e) => setGuestPhone(e.target.value)}
-                        className="pl-10 h-11 rounded-xl"
+                        className="pl-10 h-11 rounded-xl bg-[#343a30] border-[#4b5246] text-[#efece6] placeholder:text-[#9aa191]"
                         required
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="specialRequests" className="text-sm font-medium">Special Requests (Optional)</Label>
+                    <Label htmlFor="specialRequests" className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">
+                      Special requests
+                    </Label>
                     <textarea
                       id="specialRequests"
                       placeholder="Any special requirements or requests?"
                       value={specialRequests}
                       onChange={(e) => setSpecialRequests(e.target.value)}
-                      className="mt-1.5 w-full h-28 px-4 py-3 border border-stone-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="mt-2 w-full h-28 px-4 py-3 rounded-xl bg-[#343a30] border border-[#4b5246] text-[#efece6] placeholder:text-[#9aa191] resize-none focus:outline-none focus:ring-2 focus:ring-[#7f876f]"
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="idType" className="text-sm font-medium">Government ID Type *</Label>
-                    <select
-                      id="idType"
-                      value={idType}
-                      onChange={(event) => setIdType(event.target.value)}
-                      className="mt-1.5 w-full h-11 px-4 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="Government ID">Government ID</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="idProof" className="text-sm font-medium">Upload Government ID *</Label>
-                    <div className="mt-1.5">
-                      <div className="border-2 border-dashed border-blue-200 rounded-xl p-5 text-center hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="idType" className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">
+                        ID type*
+                      </Label>
+                      <select
+                        id="idType"
+                        value={idType}
+                        onChange={(event) => setIdType(event.target.value)}
+                        className="mt-2 w-full h-11 px-4 rounded-xl bg-[#343a30] border border-[#4b5246] text-[#efece6]"
+                        required
+                      >
+                        <option value="Government ID">Government ID</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="idProof" className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">
+                        Upload ID*
+                      </Label>
+                      <div className="mt-2">
                         <input
                           id="idProof"
                           type="file"
@@ -258,149 +333,140 @@ const Booking = () => {
                           className="hidden"
                           required
                         />
-                        <label htmlFor="idProof" className="cursor-pointer">
-                          {idProof ? (
-                            <div>
-                              <p className="text-green-600 font-medium mb-1">✓ {idProof.name}</p>
-                              <p className="text-xs text-stone-600">Click to change file</p>
-                            </div>
-                          ) : (
-                            <div>
-                              <p className="text-blue-700 font-medium mb-1">Click to upload government ID</p>
-                              <p className="text-xs text-stone-600">PNG, JPG or PDF (max. 5MB)</p>
-                            </div>
-                          )}
+                        <label
+                          htmlFor="idProof"
+                          className="flex items-center justify-between gap-3 px-4 h-11 rounded-xl border border-[#4b5246] bg-[#343a30] text-sm text-[#c9c3b6] cursor-pointer"
+                        >
+                          <span>{idProof ? idProof.name : 'Select file'}</span>
+                          <span className="text-[11px] uppercase tracking-[0.2em]">Browse</span>
                         </label>
                       </div>
-                      <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                        <span>ℹ️</span> Your check-in is available only after admin approval.
-                      </p>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Terms */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100">
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      className="w-4 h-4 mt-1 rounded border-stone-300 text-blue-600 focus:ring-blue-500"
-                      required
-                    />
-                    <label htmlFor="terms" className="text-sm text-stone-700">
-                      I agree to the hotel's terms and conditions, cancellation policy, and privacy policy
-                    </label>
+                  <div className="rounded-2xl border border-[#4b5246] bg-[#2f352b] px-4 py-3 text-xs text-[#c9c3b6]">
+                    Your check-in is available only after admin approval.
                   </div>
 
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="marketing"
-                      className="w-4 h-4 mt-1 rounded border-stone-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label htmlFor="marketing" className="text-sm text-stone-700">
-                      Send me exclusive offers and updates via email
-                    </label>
-                  </div>
-
-                  {user && (
-                    <div className="flex items-start gap-3 pt-2 border-t border-stone-200">
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 text-sm text-[#d7d0bf]">
                       <input
                         type="checkbox"
-                        id="saveProfile"
-                        checked={saveToProfile}
-                        onChange={(e) => setSaveToProfile(e.target.checked)}
-                        className="w-4 h-4 mt-1 rounded border-stone-300 text-blue-600 focus:ring-blue-500"
+                        id="terms"
+                        className="mt-1 h-4 w-4 rounded border-[#5b6255] bg-transparent text-[#d7d0bf]"
+                        required
                       />
-                      <label htmlFor="saveProfile" className="text-sm text-stone-700 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                        Save these details to my profile for future bookings
+                      I agree to the hotel's terms, cancellation policy, and privacy policy.
+                    </label>
+                    <label className="flex items-start gap-3 text-sm text-[#d7d0bf]">
+                      <input
+                        type="checkbox"
+                        id="marketing"
+                        className="mt-1 h-4 w-4 rounded border-[#5b6255] bg-transparent text-[#d7d0bf]"
+                      />
+                      Send me exclusive offers and updates via email.
+                    </label>
+                    {user && (
+                      <label className="flex items-start gap-3 text-sm text-[#d7d0bf]">
+                        <input
+                          type="checkbox"
+                          id="saveProfile"
+                          checked={saveToProfile}
+                          onChange={(e) => setSaveToProfile(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-[#5b6255] bg-transparent text-[#d7d0bf]"
+                        />
+                        <span className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-[#d7d0bf]" />
+                          Save these details to my profile for future bookings.
+                        </span>
                       </label>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <Button type="submit" className="w-full h-12 rounded-xl text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700" disabled={isUploading}>
-                {isUploading ? 'Uploading ID...' : 'Proceed to Payment'}
-                <CreditCard className="w-5 h-5 ml-2" />
-              </Button>
+              <div className="rounded-2xl border border-[#4b5246] bg-[#343a30] p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm uppercase tracking-[0.2em] text-[#c9c3b6]">Stay details</h3>
+                  <span className="text-xs text-[#c9c3b6]">{room ? room.name : 'Suite'}</span>
+                </div>
+                <div className="space-y-2 text-sm text-[#d7d0bf]">
+                  <div className="flex justify-between">
+                    <span>Arrive</span>
+                    <span>{format(currentBooking.checkIn, 'MMM dd, yyyy')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Depart</span>
+                    <span>{format(currentBooking.checkOut, 'MMM dd, yyyy')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Nights</span>
+                    <span>{nights}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Guests</span>
+                    <span>{currentBooking.guests}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Room Count</span>
+                    <span>{currentBooking.rooms}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Room Type</span>
+                    <span>{room?.type || 'Suite'}</span>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-[#4b5246] text-sm text-[#c9c3b6]">
+                  {stayLabel}
+                </div>
+                <div className="mt-4 pt-4 border-t border-[#4b5246] text-sm text-[#d7d0bf] space-y-2">
+                  <div className="flex justify-between">
+                    <span>Room Charges</span>
+                    <span>${currentBooking.roomPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Taxes</span>
+                    <span>${currentBooking.taxes.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Service Charges</span>
+                    <span>${currentBooking.serviceCharges.toFixed(2)}</span>
+                  </div>
+                </div>
+                {earlyCheckInFee > 0 && (
+                  <div className="flex justify-between text-[#eab308]">
+                    <span>Early Check-In Fee</span>
+                    <span>${earlyCheckInFee.toFixed(2)}</span>
+                  </div>
+                )}
+                {lateCheckOutFee > 0 && (
+                  <div className="flex justify-between text-[#eab308]">
+                    <span>Late Check-Out Fee</span>
+                    <span>${lateCheckOutFee.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="mt-4 pt-4 border-t border-[#4b5246] flex items-center justify-between text-[#efece6]">
+                  <span className="text-sm">Grand Total</span>
+                  <span className="text-lg">${totalWithExtras.toFixed(2)}</span>
+                </div>
+                <Button
+                  type="submit"
+                  className="mt-5 w-full rounded-xl border border-[#5b6255] bg-[#d7d0bf] text-[#1f241f] hover:bg-[#e5ddca]"
+                  disabled={isUploading}
+                >
+                  {isUploading ? 'Uploading ID...' : 'Continue to Payment'}
+                  <CreditCard className="w-4 h-4 ml-2" />
+                </Button>
+                {!room && roomLoadError && (
+                  <div className="mt-4 rounded-xl border border-red-200 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                    {roomLoadError}
+                  </div>
+                )}
+              </div>
             </form>
           </div>
-
-          {/* Booking Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 sticky top-4">
-              <h3 className="text-lg font-semibold mb-5 text-stone-800">Booking Summary</h3>
-
-              {room && (
-                <>
-                  <div className="mb-5">
-                    <img
-                      src={room.images[0]}
-                      alt={room.name}
-                      className="w-full h-40 object-cover rounded-xl mb-3"
-                    />
-                    <h4 className="text-base font-semibold mb-1">{room.name}</h4>
-                    <p className="text-stone-600 text-sm">{room.type} Room</p>
-                  </div>
-
-                  <div className="space-y-2.5 mb-5 pb-5 border-b border-stone-200">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Check-in</span>
-                      <span className="font-medium">{format(currentBooking.checkIn, 'MMM dd, yyyy')}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Check-out</span>
-                      <span className="font-medium">{format(currentBooking.checkOut, 'MMM dd, yyyy')}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Guests</span>
-                      <span className="font-medium">{currentBooking.guests}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Rooms</span>
-                      <span className="font-medium">{currentBooking.rooms}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2.5 mb-5 pb-5 border-b border-stone-200">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Room Charges</span>
-                      <span className="font-medium">${currentBooking.roomPrice.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Taxes</span>
-                      <span className="font-medium">${currentBooking.taxes.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Service Charges</span>
-                      <span className="font-medium">${currentBooking.serviceCharges.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center mb-5 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
-                    <span className="text-base font-semibold text-stone-800">Total Amount</span>
-                    <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">${currentBooking.totalPrice.toFixed(2)}</span>
-                  </div>
-
-                  <div className="p-3.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl text-sm text-green-800">
-                    <p className="flex items-center gap-2"><span>✓</span> Free cancellation up to 24 hours before check-in</p>
-                  </div>
-                </>
-              )}
-              {!room && roomLoadError && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {roomLoadError}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

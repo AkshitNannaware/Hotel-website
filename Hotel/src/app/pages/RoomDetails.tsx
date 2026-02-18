@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router';
-import { ChevronLeft, ChevronRight, Users, Maximize2, Star, Calendar, Wifi, Car, Coffee, Waves, Check } from 'lucide-react';
-import { Button } from '../components/ui/button';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router';
+import { Calendar, X, Users, Maximize2, Wifi, Car, Coffee, Waves } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Button } from '../components/ui/button';
 import { useBooking } from '../context/BookingContext';
 import { toast } from 'sonner';
 import type { Room } from '../types/room';
@@ -12,394 +12,271 @@ const RoomDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { setCurrentBooking } = useBooking();
+  const location = useLocation();
+  
+  // Define API_BASE outside or memoize it to prevent re-render triggers
   const API_BASE = (import.meta.env?.VITE_API_URL as string | undefined) || 'http://localhost:5000';
+
+  const [room, setRoom] = useState<Room | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
+  const [checkInTime, setCheckInTime] = useState('14:00'); // Default 2 PM
+  const [checkOutTime, setCheckOutTime] = useState('12:00'); // Default 12 PM
+  const [guests, setGuests] = useState('1');
+  const [roomCount, setRoomCount] = useState('1');
 
   const resolveImageUrl = (imageUrl: string) => {
     if (!imageUrl) return '';
     return imageUrl.startsWith('/uploads/') ? `${API_BASE}${imageUrl}` : imageUrl;
   };
-  const [room, setRoom] = useState<Room | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [guests, setGuests] = useState('1');
-  const [roomCount, setRoomCount] = useState('1');
-
-  useEffect(() => {
-    if (!id) {
-      return;
-    }
-
-    const loadRoom = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const response = await fetch(`${API_BASE}/api/rooms/${id}`);
-        if (!response.ok) {
-          throw new Error(`Failed to load room (${response.status})`);
-        }
-        const data = await response.json();
-        setRoom({
-          id: data._id || data.id,
-          name: data.name,
-          type: data.type,
-          price: data.price,
-          images: data.images || [],
-          description: data.description || '',
-          amenities: data.amenities || [],
-          maxGuests: data.maxGuests || 1,
-          size: data.size || 0,
-          available: data.available ?? true,
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to load room';
-        setLoadError(message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadRoom();
-  }, [API_BASE, id]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-stone-600">Loading room...</div>
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl mb-2">Unable to load room</h2>
-          <p className="text-stone-600 mb-4">{loadError}</p>
-          <Button onClick={() => navigate('/rooms')}>Back to Rooms</Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!room) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl mb-2">Room not found</h2>
-          <Button onClick={() => navigate('/rooms')}>Back to Rooms</Button>
-        </div>
-      </div>
-    );
-  }
 
   const amenityIcons: Record<string, any> = {
     'WiFi': Wifi,
     'Pool Access': Waves,
     'Parking': Car,
     'Room Service': Coffee,
-    'AC': Coffee,
-    'TV': Coffee,
-    'Minibar': Coffee,
-    'Workspace': Coffee,
-    'Jacuzzi': Waves,
-    'Butler Service': Coffee,
   };
 
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % room.images.length);
-  };
+  // FETCH LOGIC: Optimized with dependency tracking to stop 304 loops
+  useEffect(() => {
+    let isMounted = true;
+    
+    if (!id) return;
 
-  const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + room.images.length) % room.images.length);
-  };
+    const loadRoom = async () => {
+      // Prevent duplicate concurrent requests
+      if (isLoading) return; 
 
-  const calculateNights = () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = await fetch(`${API_BASE}/api/rooms/${id}`);
+        if (!response.ok) throw new Error(`Room not found (${response.status})`);
+        const data = await response.json();
+        
+        if (isMounted) {
+          setRoom({
+            id: data._id || data.id,
+            name: data.name,
+            type: data.type,
+            price: data.price,
+            images: data.images || [],
+            description: data.description || '',
+            amenities: data.amenities || [],
+            maxGuests: data.maxGuests || 1,
+            size: data.size || 0,
+            available: data.available ?? true,
+          });
+        }
+      } catch (error) {
+        if (isMounted) setLoadError(error instanceof Error ? error.message : 'Failed to load');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    loadRoom();
+
+    return () => { isMounted = false; };
+  }, [id]); // Only re-run if the URL ID changes
+
+  const calculateNights = useCallback(() => {
     if (!checkIn || !checkOut) return 0;
     const start = new Date(checkIn);
     const end = new Date(checkOut);
     const diff = end.getTime() - start.getTime();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
-  };
-
-  const calculatePrice = () => {
-    const nights = calculateNights();
-    const rooms = parseInt(roomCount) || 1;
-    const roomPrice = room.price * nights * rooms;
-    const taxes = roomPrice * 0.12;
-    const serviceCharges = roomPrice * 0.05;
-    const total = roomPrice + taxes + serviceCharges;
-
-    return { roomPrice, taxes, serviceCharges, total, nights };
-  };
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [checkIn, checkOut]);
 
   const handleBookNow = () => {
+    if (!room) return;
+    const nights = calculateNights();
+
+
     if (!checkIn || !checkOut) {
       toast.error('Please select check-in and check-out dates');
       return;
     }
 
-    if (new Date(checkIn) >= new Date(checkOut)) {
+    if (nights <= 0) {
       toast.error('Check-out date must be after check-in date');
       return;
     }
 
-    const { roomPrice, taxes, serviceCharges, total } = calculatePrice();
+    toast.success('Room booking details set! Proceed to booking.');
+
+    const rooms = parseInt(roomCount) || 1;
+    const roomPrice = room.price * nights * rooms;
+    const taxes = roomPrice * 0.12;
+    const serviceCharges = roomPrice * 0.05;
 
     setCurrentBooking({
       roomId: room.id,
-      checkIn: new Date(checkIn),
-      checkOut: new Date(checkOut),
+      checkIn: new Date(`${checkIn}T${checkInTime}`),
+      checkOut: new Date(`${checkOut}T${checkOutTime}`),
       guests: parseInt(guests),
-      rooms: parseInt(roomCount),
-      totalPrice: total,
+      rooms: rooms,
+      totalPrice: roomPrice + taxes + serviceCharges, // Will be recalculated in Booking
       roomPrice,
       taxes,
       serviceCharges,
+      checkInTime,
+      checkOutTime,
     });
 
     navigate('/booking');
   };
 
-  const pricing = calculatePrice();
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#3f4a40]">
+      <div className="animate-pulse text-[#d7d0bf] tracking-widest uppercase text-sm">Loading Experience...</div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/rooms')}
-          className="mb-6"
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Back to Rooms
-        </Button>
+    <div className="min-h-screen bg-[#3f4a40] text-[#efece6] relative overflow-hidden">
 
-        {/* Image Gallery */}
-        <div className="mb-8">
-          <div className="relative h-[260px] sm:h-[360px] lg:h-[500px] rounded-3xl overflow-hidden bg-stone-200">
-            <img
-              src={resolveImageUrl(room.images[currentImageIndex])}
-              alt={room.name}
-              className="w-full h-full object-cover"
-            />
-            
-            {room.images.length > 1 && (
-              <>
-                <button
-                  onClick={prevImage}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all"
+      {/* Background Gradients */}
+      <div className="absolute inset-0 bg-[#3f4a40]"/>
+      <div className="absolute inset-0 opacity-20 bg-[linear-gradient(90deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:220px_100%]" />
+
+      <div className="relative max-w-6xl mx-auto px-4 py-12 lg:py-20">
+        {room ? (
+          <div className="bg-[#3a4035]/95 rounded-[2.5rem] border border-[#4b5246] shadow-2xl overflow-hidden">
+            {/* Conditionally show room image only if navigated from 'rooms' (not from 'booknow') */}
+            {location.state?.from === 'rooms' && (
+              <div className="relative h-[40px] lg:h-[50vh]">
+                <img 
+                  src={resolveImageUrl(room.images[0])} 
+                  alt={room.name} 
+                  className="w-full h-full object-cover"
+                />
+                <button 
+                  onClick={() => navigate('/rooms')}
+                  className="absolute top-6 right-6 h-10 w-10 rounded-full bg-black/20 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-black/40 transition-all"
                 >
-                  <ChevronLeft className="w-6 h-6" />
+                  <X className="w-5 h-5" />
                 </button>
-                <button
-                  onClick={nextImage}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                  {room.images.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCurrentImageIndex(idx)}
-                      className={`w-2.5 h-2.5 rounded-full transition-all ${
-                        idx === currentImageIndex
-                          ? 'bg-white w-8'
-                          : 'bg-white/50 hover:bg-white/75'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {room.available && (
-              <div className="absolute top-4 left-4 bg-green-500 text-white px-4 py-2 rounded-full">
-                Available Now
               </div>
             )}
-          </div>
 
-          {room.images.length > 1 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-              {room.images.slice(0, 4).map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentImageIndex(idx)}
-                  className={`relative h-24 rounded-xl overflow-hidden ${
-                    idx === currentImageIndex ? 'ring-2 ring-stone-900' : ''
-                  }`}
-                >
-                  <img src={resolveImageUrl(img)} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Room Details */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-3xl p-8 shadow-sm mb-6">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
+            <div className="p-8 lg:p-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
+              <div className="lg:col-span-2 space-y-8">
                 <div>
-                  <h1 className="text-4xl mb-2">{room.name}</h1>
-                  <p className="text-xl text-stone-600">{room.type} Room</p>
+                  <h1 className="text-4xl lg:text-5xl mb-4 font-light">{room.name}</h1>
+                  <p className="text-[#c9c3b6] uppercase tracking-[0.25em] text-xs">{room.type} Suite</p>
+                  <div className="h-px w-20 bg-[#5b6255] mt-6" />
                 </div>
-                <div className="text-right">
-                  <div className="text-4xl mb-1">${room.price}</div>
-                  <div className="text-stone-600">per night</div>
-                </div>
-              </div>
 
-              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 mb-6 pb-6 border-b border-stone-200">
-                <div className="flex items-center gap-2 text-stone-700">
-                  <Users className="w-5 h-5" />
-                  <span>Up to {room.maxGuests} guests</span>
-                </div>
-                <div className="flex items-center gap-2 text-stone-700">
-                  <Maximize2 className="w-5 h-5" />
-                  <span>{room.size} m²</span>
-                </div>
-                <div className="flex items-center gap-2 text-stone-700">
-                  <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-                  <span>4.8 Rating</span>
-                </div>
-              </div>
+                <p className="text-[#efece6]/80 leading-relaxed text-lg font-light">
+                  {room.description || "Experience unparalleled luxury in our meticulously designed suites, featuring premium finishes and breathtaking views."}
+                </p>
 
-              <div className="mb-6">
-                <h3 className="text-xl mb-3">Description</h3>
-                <p className="text-stone-600 leading-relaxed">{room.description}</p>
-              </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6 border-y border-[#4b5246]">
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-widest text-[#9aa191]">Size</span>
+                    <p className="flex items-center gap-2 text-sm"><Maximize2 className="w-4 h-4" /> {room.size} m²</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase tracking-widest text-[#9aa191]">Check In Time</Label>
+                    <Input 
+                      type="time" 
+                      value={checkInTime} 
+                      onChange={(e) => setCheckInTime(e.target.value)}
+                      className="bg-[#2a3026] border-[#4b5246] rounded-xl h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase tracking-widest text-[#9aa191]">Check Out Time</Label>
+                    <Input 
+                      type="time" 
+                      value={checkOutTime} 
+                      onChange={(e) => setCheckOutTime(e.target.value)}
+                      className="bg-[#2a3026] border-[#4b5246] rounded-xl h-12"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-widest text-[#9aa191]">Occupancy</span>
+                    <p className="flex items-center gap-2 text-sm"><Users className="w-4 h-4" /> {room.maxGuests} Guests</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-widest text-[#9aa191]">View</span>
+                    <p className="flex items-center gap-2 text-sm">City Skyline</p>
+                  </div>
+                </div>
 
-              <div>
-                <h3 className="text-xl mb-4">Amenities</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {room.amenities.map((amenity, idx) => {
-                    const Icon = amenityIcons[amenity] || Check;
-                    return (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-3 p-3 bg-stone-50 rounded-xl"
-                      >
-                        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-                          <Icon className="w-5 h-5 text-stone-700" />
+                <div>
+                  <h3 className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6] mb-6">Suite Amenities</h3>
+                  <div className="flex flex-wrap gap-3">
+                    {room.amenities.map((amenity, idx) => {
+                      const Icon = amenityIcons[amenity] || Coffee;
+                      return (
+                        <div key={idx} className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#343a30] border border-[#4b5246] text-sm">
+                          <Icon className="w-4 h-4 text-[#d7d0bf]" />
+                          {amenity}
                         </div>
-                        <span className="text-stone-700">{amenity}</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Booking Sidebar */}
+              <div className="space-y-6">
+                <div className="bg-[#343a30] rounded-3xl p-8 border border-[#4b5246] shadow-xl">
+                  <h3 className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6] mb-8">Reserve Stay</h3>
+                  
+                  <div className="space-y-4 mb-8">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest text-[#9aa191]">Check In</Label>
+                      <Input 
+                        type="date" 
+                        value={checkIn} 
+                        onChange={(e) => setCheckIn(e.target.value)}
+                        className="bg-[#2a3026] border-[#4b5246] rounded-xl h-12"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest text-[#9aa191]">Check Out</Label>
+                      <Input 
+                        type="date" 
+                        value={checkOut} 
+                        onChange={(e) => setCheckOut(e.target.value)}
+                        className="bg-[#2a3026] border-[#4b5246] rounded-xl h-12"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-[#4b5246] space-y-3 mb-8">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#9aa191]">Rate per night</span>
+                      <span>${room.price.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-medium text-[#d7d0bf]">
+                      <span>Total for {calculateNights()} nights</span>
+                      <span>${(room.price * calculateNights()).toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleBookNow}
+                    disabled={!room.available}
+                    className="w-full h-14 rounded-2xl bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6] transition-all font-bold text-sm uppercase tracking-widest"
+                  >
+                    {room.available ? 'Book this Room' : 'Sold Out'}
+                  </Button>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Booking Card */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-3xl p-6 shadow-lg lg:sticky lg:top-4">
-              <h3 className="text-xl mb-6">Book This Room</h3>
-
-              <div className="space-y-4 mb-6">
-                <div>
-                  <Label htmlFor="checkIn">Check-in Date</Label>
-                  <div className="relative mt-2">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
-                    <Input
-                      id="checkIn"
-                      type="date"
-                      value={checkIn}
-                      onChange={(e) => setCheckIn(e.target.value)}
-                      className="pl-10 h-12"
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="checkOut">Check-out Date</Label>
-                  <div className="relative mt-2">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
-                    <Input
-                      id="checkOut"
-                      type="date"
-                      value={checkOut}
-                      onChange={(e) => setCheckOut(e.target.value)}
-                      className="pl-10 h-12"
-                      min={checkIn || new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="guests">Number of Guests</Label>
-                  <Input
-                    id="guests"
-                    type="number"
-                    min="1"
-                    max={room.maxGuests}
-                    value={guests}
-                    onChange={(e) => setGuests(e.target.value)}
-                    className="mt-2 h-12"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="rooms">Number of Rooms</Label>
-                  <Input
-                    id="rooms"
-                    type="number"
-                    min="1"
-                    max="5"
-                    value={roomCount}
-                    onChange={(e) => setRoomCount(e.target.value)}
-                    className="mt-2 h-12"
-                  />
-                </div>
-              </div>
-
-              {pricing.nights > 0 && (
-                <div className="mb-6 p-4 bg-stone-50 rounded-xl space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-stone-600">
-                      ${room.price} × {pricing.nights} nights × {roomCount} room(s)
-                    </span>
-                    <span>${pricing.roomPrice.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-stone-600">Taxes (12%)</span>
-                    <span>${pricing.taxes.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-stone-600">Service Charges (5%)</span>
-                    <span>${pricing.serviceCharges.toFixed(2)}</span>
-                  </div>
-                  <div className="pt-2 border-t border-stone-200 flex justify-between">
-                    <span>Total</span>
-                    <span className="text-xl">${pricing.total.toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
-
-              <Button
-                onClick={handleBookNow}
-                className="w-full h-12 rounded-xl text-base"
-                disabled={!room.available}
-              >
-                {room.available ? 'Book Now' : 'Not Available'}
-              </Button>
-
-              <p className="text-xs text-stone-500 text-center mt-4">
-                Free cancellation up to 24 hours before check-in
-              </p>
-            </div>
+        ) : (
+          <div className="text-center py-20">
+            <h2 className="text-2xl mb-4">Room Unavailable</h2>
+            <Button onClick={() => navigate('/rooms')} variant="outline">Browse Others</Button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

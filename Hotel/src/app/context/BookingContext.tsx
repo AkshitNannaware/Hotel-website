@@ -11,6 +11,10 @@ export interface BookingDetails {
   roomPrice: number;
   taxes: number;
   serviceCharges: number;
+  checkInTime?: string;
+  checkOutTime?: string;
+  earlyCheckInFee?: number;
+  lateCheckOutFee?: number;
 }
 
 export interface Booking extends BookingDetails {
@@ -31,6 +35,7 @@ export interface Booking extends BookingDetails {
 interface BookingContextType {
   currentBooking: BookingDetails | null;
   bookings: Booking[];
+  bookingsLoading: boolean;
   setCurrentBooking: (booking: BookingDetails | null) => void;
   confirmBooking: (guestDetails: { name: string; email: string; phone: string }) => Promise<Booking>;
   cancelBooking: (bookingId: string) => Promise<void>;
@@ -40,12 +45,14 @@ interface BookingContextType {
   refreshBookings: () => Promise<void>;
 }
 
-const BookingContext = createContext<BookingContextType | undefined>(undefined);
+
+export const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
 export const BookingProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const [currentBooking, setCurrentBooking] = useState<BookingDetails | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   const getAuthToken = () => {
@@ -75,9 +82,11 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshBookings = useCallback(async () => {
+    setBookingsLoading(true);
     const token = getAuthToken();
     if (!token) {
       setBookings([]);
+      setBookingsLoading(false);
       return;
     }
 
@@ -89,6 +98,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (!response.ok) {
+        setBookingsLoading(false);
         return;
       }
 
@@ -120,6 +130,8 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
       setBookings(normalized);
     } catch {
       // ignore load errors
+    } finally {
+      setBookingsLoading(false);
     }
   }, [API_BASE]);
 
@@ -316,7 +328,6 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     setBookings((prev) =>
       prev.map((booking) => (booking.id === bookingId ? normalized : booking))
     );
-
     return normalized;
   };
 
@@ -324,6 +335,7 @@ export const BookingProvider = ({ children }: { children: ReactNode }) => {
     <BookingContext.Provider value={{
       currentBooking,
       bookings,
+      bookingsLoading,
       setCurrentBooking,
       confirmBooking,
       cancelBooking,

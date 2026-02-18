@@ -41,6 +41,34 @@ const uploadRoomImages = multer({
   },
 });
 
+// Setup multer for room video uploads
+const roomVideosDir = path.join(__dirname, '..', '..', '..', 'uploads', 'rooms', 'videos');
+fs.mkdirSync(roomVideosDir, { recursive: true });
+
+const roomVideoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, roomVideosDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '';
+    const safeExt = ext.toLowerCase();
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `room-video-${unique}${safeExt}`);
+  },
+});
+
+const uploadRoomVideo = multer({
+  storage: roomVideoStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  fileFilter: (req, file, cb) => {
+    const allowed = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error('Invalid file type. Only MP4, WebM, OGG, and MOV videos are allowed.'));
+    }
+    cb(null, true);
+  },
+});
+
 // GET /api/admin/stats
 router.get('/stats', async (req, res, next) => {
   try {
@@ -143,6 +171,31 @@ router.post('/rooms/:id/upload-images', uploadRoomImages.array('images', 10), as
     res.json({
       message: 'Images uploaded successfully',
       images: imageUrls,
+      room,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/rooms/:id/upload-video - Upload room video
+router.post('/rooms/:id/upload-video', uploadRoomVideo.single('video'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No video uploaded' });
+    }
+
+    const room = await Room.findById(req.params.id);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    room.video = `/uploads/rooms/videos/${req.file.filename}`;
+    await room.save();
+
+    res.json({
+      message: 'Video uploaded successfully',
+      video: room.video,
       room,
     });
   } catch (err) {

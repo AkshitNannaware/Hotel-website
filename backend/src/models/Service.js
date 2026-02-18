@@ -6,6 +6,7 @@ const serviceSchema = new mongoose.Schema(
     category: { type: String, enum: ['dining', 'restaurant', 'spa', 'bar'], required: true },
     description: { type: String, default: '' },
     image: { type: String, default: '' },
+    video: { type: String, default: '' },
     priceRange: { type: String, default: '' },
     availableTimes: { type: [String], default: [] },
   },

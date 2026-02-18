@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
-import { CheckCircle, Download, Home, Clock } from 'lucide-react';
+import { CheckCircle, Download, Home, Clock, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useBooking } from '../context/BookingContext';
 import { format } from 'date-fns';
@@ -93,125 +93,132 @@ const PaymentSuccess = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-stone-50 flex items-center justify-center px-4 py-8">
-      <div className="max-w-2xl w-full">
-        <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 text-center">
-          <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-12 h-12 text-white" />
-          </div>
+    <div className="min-h-screen bg-[#0f1210] text-[#efece6]">
+      <section className="relative overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 20% 10%, rgba(86,98,85,0.35), transparent 60%), radial-gradient(circle at 80% 70%, rgba(74,92,80,0.35), transparent 60%), linear-gradient(180deg, rgba(10,12,10,0.9), rgba(10,12,10,0.6))',
+          }}
+        />
+        <div className="absolute inset-0 opacity-20 bg-[linear-gradient(90deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:220px_100%]" />
 
-          <h1 className="text-4xl mb-3">
-            {payAtCheckin ? 'Booking Confirmed!' : 'Payment Successful!'}
-          </h1>
-          <p className="text-xl text-stone-600 mb-8">
-            {payAtCheckin 
-              ? 'Your room is reserved. Payment will be collected at check-in'
-              : 'Your booking has been confirmed'
-            }
-          </p>
-
-          <div className="bg-stone-50 rounded-2xl p-6 mb-8 text-left">
-            <div className="mb-6 pb-6 border-b border-stone-200">
-              <div className="text-sm text-stone-600 mb-1">Booking ID</div>
-              <div className="text-2xl">{booking.id}</div>
+        <div className="relative max-w-5xl mx-auto px-4 py-12">
+          <div className="rounded-[2rem] border border-[#4b5246] bg-[#3a4035]/95 shadow-2xl overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-b border-[#4b5246]">
+              <div className="flex flex-wrap items-center gap-4 text-[11px] uppercase tracking-[0.25em] text-[#c9c3b6]">
+                {[
+                  'Select Dates & Guests',
+                  'Choose Your Room',
+                  'Guest Information',
+                  'Payment',
+                ].map((label, index) => (
+                  <div key={label} className="flex items-center gap-3">
+                    <div className="h-7 w-7 rounded-full border border-[#9aa191] text-[#9aa191] text-[9px] flex items-center justify-center">
+                      OK
+                    </div>
+                    <span>{label}</span>
+                    {index < 3 && <span className="h-px w-8 bg-[#5b6255]" />}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="h-9 w-9 rounded-full border border-[#5b6255] text-[#d7d0bf] hover:bg-white/10 flex items-center justify-center"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {room && (
-              <>
-                <div className="grid grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <div className="text-sm text-stone-600 mb-1">Room</div>
-                    <div className="text-lg">{room.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-stone-600 mb-1">Room Type</div>
-                    <div className="text-lg">{room.type}</div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <div className="text-sm text-stone-600 mb-1">Check-in</div>
-                    <div className="text-lg">{format(booking.checkIn, 'MMM dd, yyyy')}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-stone-600 mb-1">Check-out</div>
-                    <div className="text-lg">{format(booking.checkOut, 'MMM dd, yyyy')}</div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <div className="text-sm text-stone-600 mb-1">Guests</div>
-                    <div className="text-lg">{booking.guests}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-stone-600 mb-1">Rooms</div>
-                    <div className="text-lg">{booking.rooms}</div>
-                  </div>
-                </div>
-              </>
-            )}
-            {!room && roomLoadError && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {roomLoadError}
+            <div className="px-6 py-10 text-center">
+              <div className="w-14 h-14 bg-[#d7d0bf] rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-[#1f241f]" />
               </div>
-            )}
+              <h1 className="text-2xl sm:text-3xl text-[#efece6] mb-2">
+                Congrats! Your booking is confirmed.
+              </h1>
+              <p className="text-sm text-[#c9c3b6] mb-8">
+                {payAtCheckin
+                  ? 'Payment will be collected at check-in.'
+                  : 'Your payment was successful. Check your email for the invoice.'}
+              </p>
 
-            <div className="pt-6 border-t border-stone-200">
-              <div className="flex justify-between items-center">
-                <span className="text-lg text-stone-600">
-                  {payAtCheckin ? 'Amount Due at Check-in' : 'Total Amount Paid'}
-                </span>
-                <span className="text-3xl">${booking.totalPrice.toFixed(2)}</span>
-              </div>
-              {payAtCheckin && (
-                <div className="mt-4 flex items-center gap-2 text-sm text-stone-600">
-                  <Clock className="w-4 h-4" />
-                  <span>Payment can be made in cash or card at the hotel reception</span>
+              <div className="max-w-2xl mx-auto rounded-2xl border border-[#4b5246] bg-[#343a30] p-6 text-left">
+                <div className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6] mb-3">Confirmation summary</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-[#d7d0bf]">
+                  <div>
+                    <div className="text-xs text-[#9aa191]">Booking ID</div>
+                    <div>{booking.id}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#9aa191]">Guest Name</div>
+                    <div>{booking.guestName}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#9aa191]">Check-in</div>
+                    <div>{format(booking.checkIn, 'MMM dd, yyyy')}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#9aa191]">Check-out</div>
+                    <div>{format(booking.checkOut, 'MMM dd, yyyy')}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#9aa191]">Room Type</div>
+                    <div>{room?.type || 'Suite'}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[#9aa191]">Room Count</div>
+                    <div>{booking.rooms}</div>
+                  </div>
                 </div>
-              )}
+                {roomLoadError && !room && (
+                  <div className="mt-4 rounded-xl border border-red-200 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                    {roomLoadError}
+                  </div>
+                )}
+                <div className="mt-6 pt-4 border-t border-[#4b5246] flex items-center justify-between text-[#efece6]">
+                  <span>Total Payment</span>
+                  <span className="text-xl">${booking.totalPrice.toFixed(2)}</span>
+                </div>
+                {payAtCheckin && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-[#c9c3b6]">
+                    <Clock className="w-4 h-4" />
+                    Pay at hotel reception with cash or card.
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  onClick={handleDownloadInvoice}
+                  className="rounded-xl border border-[#5b6255] bg-transparent text-[#d7d0bf] hover:bg-white/10"
+                  variant="outline"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Receipts
+                </Button>
+                <Button
+                  onClick={() => navigate('/profile')}
+                  className="rounded-xl border border-[#5b6255] bg-transparent text-[#d7d0bf] hover:bg-white/10"
+                  variant="outline"
+                >
+                  View My Booking
+                </Button>
+                <Button
+                  onClick={() => navigate('/')}
+                  className="rounded-xl border border-[#5b6255] bg-[#d7d0bf] text-[#1f241f] hover:bg-[#e5ddca]"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Back to Home
+                </Button>
+              </div>
             </div>
-          </div>
-
-          <div className="space-y-3 mb-8">
-            <Button
-              onClick={handleDownloadInvoice}
-              className="w-full h-12 rounded-xl"
-              variant="outline"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Download Invoice
-            </Button>
-
-            <Button
-              onClick={() => navigate('/profile')}
-              className="w-full h-12 rounded-xl"
-              variant="outline"
-            >
-              View My Bookings
-            </Button>
-
-            <Button
-              onClick={() => navigate('/')}
-              className="w-full h-12 rounded-xl"
-            >
-              <Home className="w-5 h-5 mr-2" />
-              Back to Home
-            </Button>
-          </div>
-
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
-            <p className="mb-2">
-              <strong>Confirmation email sent!</strong>
-            </p>
-            <p>
-              A confirmation email has been sent to {booking.guestEmail} with your booking details.
-              {payAtCheckin && ' Please bring a valid ID and payment method for check-in.'}
-            </p>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

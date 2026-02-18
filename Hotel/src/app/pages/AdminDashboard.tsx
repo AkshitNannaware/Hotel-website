@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
 import { 
   LayoutDashboard, 
@@ -18,8 +19,16 @@ import {
   Phone,
   Eye,
   ClipboardList,
+  Menu,
+  X,
   Download,
-  Upload
+  Upload,
+  Tag,
+  Maximize2,
+  Wifi,
+  Car,
+  Coffee,
+  Waves
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -69,8 +78,24 @@ type AdminService = {
   category: 'dining' | 'restaurant' | 'spa' | 'bar';
   description: string;
   image: string;
+  video: string;
   priceRange: string;
   availableTimes: string[];
+};
+
+type AdminOffer = {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  price: number;
+  rating: number;
+  reviewCount: number;
+  badgeText: string;
+  expiryDate?: string | Date | null;
+  ctaText: string;
+  image: string;
+  active: boolean;
 };
 
 type AdminContact = {
@@ -118,11 +143,13 @@ const AdminDashboard = () => {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [roomsState, setRoomsState] = useState<Room[]>([]);
   const [bookingsState, setBookingsState] = useState<AdminBooking[]>([]);
   const [serviceBookingsState, setServiceBookingsState] = useState<AdminServiceBooking[]>([]);
   const [usersState, setUsersState] = useState<AdminUser[]>([]);
   const [servicesState, setServicesState] = useState<AdminService[]>([]);
+  const [offersState, setOffersState] = useState<AdminOffer[]>([]);
   const [contactsState, setContactsState] = useState<AdminContact[]>([]);
   const [contactStatsState, setContactStatsState] = useState<ContactStats | null>(null);
   const [statsState, setStatsState] = useState<AdminStats | null>(null);
@@ -132,6 +159,8 @@ const AdminDashboard = () => {
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [isServiceFormOpen, setIsServiceFormOpen] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [isOfferFormOpen, setIsOfferFormOpen] = useState(false);
+  const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
   const [bookingStatusFilter, setBookingStatusFilter] = useState('all');
   const [serviceBookingStatusFilter, setServiceBookingStatusFilter] = useState('all');
   const [roomForm, setRoomForm] = useState({
@@ -141,7 +170,7 @@ const AdminDashboard = () => {
     images: '',
     description: '',
     amenities: '',
-    maxGuests: '1',
+    maxGuests: '',
     size: '20',
     available: true,
   });
@@ -150,8 +179,22 @@ const AdminDashboard = () => {
     category: 'dining',
     description: '',
     image: '',
+    video: '',
     priceRange: '',
     availableTimes: '',
+  });
+  const [offerForm, setOfferForm] = useState({
+    title: '',
+    subtitle: '',
+    description: '',
+    price: '',
+    rating: '4.9',
+    reviewCount: '',
+    badgeText: '',
+    expiryDate: '',
+    ctaText: 'Check availability',
+    image: '',
+    active: true,
   });
 
   const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
@@ -159,9 +202,12 @@ const AdminDashboard = () => {
   const [bookingIdProofFile, setBookingIdProofFile] = useState<File | null>(null);
   const [bookingIdProofType, setBookingIdProofType] = useState('passport');
   const [roomImageFiles, setRoomImageFiles] = useState<File[]>([]);
+  const [roomVideoFile, setRoomVideoFile] = useState<File | null>(null);
   const [serviceImageFile, setServiceImageFile] = useState<File | null>(null);
+  const [serviceVideoFile, setServiceVideoFile] = useState<File | null>(null);
+  const [offerImageFile, setOfferImageFile] = useState<File | null>(null);
   const [isServiceBookingFormOpen, setIsServiceBookingFormOpen] = useState(false);
-  const [expandedServiceCategories, setExpandedServiceCategories] = useState<Set<string>>(new Set(['restaurant']));
+  const [activeServiceCategory, setActiveServiceCategory] = useState<AdminService['category']>('restaurant');
   const [expandedServiceBookingCategories, setExpandedServiceBookingCategories] = useState<Set<string>>(new Set(['restaurant']));
   const [bookingForm, setBookingForm] = useState({
     roomId: '',
@@ -212,8 +258,14 @@ const AdminDashboard = () => {
     primaryColor: '#1c1917',
     accentColor: '#d6cdb8',
   });
+  const [brandingLogoFile, setBrandingLogoFile] = useState<File | null>(null);
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [settingsSavedAt, setSettingsSavedAt] = useState<string | null>(null);
+
+  const handleNavSelect = (tab: string) => {
+    setActiveTab(tab);
+    setIsSidebarOpen(false);
+  };
 
   const getAuthToken = () => {
     const stored = localStorage.getItem('auth');
@@ -304,6 +356,7 @@ const AdminDashboard = () => {
     type: room.type,
     price: room.price,
     images: room.images || [],
+    video: room.video || '',
     description: room.description || '',
     amenities: room.amenities || [],
     maxGuests: room.maxGuests || 1,
@@ -317,8 +370,24 @@ const AdminDashboard = () => {
     category: service.category,
     description: service.description || '',
     image: service.image || '',
+    video: service.video || '',
     priceRange: service.priceRange || '',
     availableTimes: service.availableTimes || [],
+  });
+
+  const normalizeOffer = (offer: any): AdminOffer => ({
+    id: offer._id || offer.id,
+    title: offer.title || '',
+    subtitle: offer.subtitle || '',
+    description: offer.description || '',
+    price: Number(offer.price || 0),
+    rating: Number(offer.rating || 4.9),
+    reviewCount: Number(offer.reviewCount || 0),
+    badgeText: offer.badgeText || '',
+    expiryDate: offer.expiryDate || null,
+    ctaText: offer.ctaText || 'Check availability',
+    image: offer.image || '',
+    active: offer.active ?? true,
   });
 
   const normalizeServiceBooking = (booking: any): AdminServiceBooking => ({
@@ -465,7 +534,16 @@ const AdminDashboard = () => {
       setLoadError(null);
       console.log('Admin dashboard: loading data...');
       try {
-        const [statsData, roomsData, bookingsData, usersData, contactsData, servicesData, serviceBookingsData] = await Promise.all([
+        const [
+          statsData,
+          roomsData,
+          bookingsData,
+          usersData,
+          contactsData,
+          servicesData,
+          serviceBookingsData,
+          offersData,
+        ] = await Promise.all([
           fetchJson('/api/admin/stats'),
           fetchJson('/api/admin/rooms'),
           fetchJson('/api/admin/bookings'),
@@ -473,6 +551,7 @@ const AdminDashboard = () => {
           fetchJson('/api/admin/contacts'),
           fetchJson('/api/services'),
           fetchJson('/api/admin/service-bookings'),
+          fetchJson('/api/admin/offers'),
         ]);
 
         setStatsState(statsData as AdminStats);
@@ -509,6 +588,7 @@ const AdminDashboard = () => {
         setContactStatsState((contactsData as any).stats || null);
         setServicesState((servicesData as any[]).map(normalizeService));
         setServiceBookingsState((serviceBookingsData as any[]).map(normalizeServiceBooking));
+        setOffersState((offersData as any[]).map(normalizeOffer));
         console.log('Admin dashboard: data loaded');
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load admin data';
@@ -623,6 +703,25 @@ const AdminDashboard = () => {
     (service) => service.id === serviceBookingForm.serviceId
   );
   const serviceBookingTimes = selectedServiceForBooking?.availableTimes || [];
+  const servicesForActiveCategory = servicesState
+    .filter((service) => service.category === activeServiceCategory)
+    .slice(0, 5);
+  const settingsInputClass =
+    'mt-1 bg-[#2f3a32]/90 border border-[#5b6659] text-[#efece6] placeholder:text-[#cfc9bb] focus-visible:ring-2 focus-visible:ring-amber-500/60';
+
+  const amenityIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+    WiFi: Wifi,
+    'Pool Access': Waves,
+    Parking: Car,
+    'Room Service': Coffee,
+  };
+
+  const formatOfferDateInput = (value?: string | Date | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
+  };
 
   const resetRoomForm = () => {
     setRoomForm({
@@ -632,11 +731,12 @@ const AdminDashboard = () => {
       images: '',
       description: '',
       amenities: '',
-      maxGuests: '1',
+      maxGuests: '',
       size: '20',
       available: true,
     });
     setRoomImageFiles([]);
+    setRoomVideoFile(null);
   };
 
   const handleAddRoomClick = () => {
@@ -695,9 +795,8 @@ const AdminDashboard = () => {
       name: roomForm.name.trim() || 'New Room',
       type: roomForm.type as Room['type'],
       price: Number(roomForm.price) || 0,
-      images: images.length
-        ? images
-        : ['https://images.unsplash.com/photo-1655292912612-bb5b1bda9355?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080'],
+      images: images.length ? images : [],
+      video: '',
       description: roomForm.description.trim(),
       amenities,
       maxGuests: Number(roomForm.maxGuests) || 1,
@@ -741,9 +840,28 @@ const AdminDashboard = () => {
 
           updatedRoom = uploadResponse.room;
           console.log('Admin dashboard: room images uploaded', uploadResponse);
+          toast.success('Room images uploaded successfully!');
         } catch (uploadError) {
           console.error('Failed to upload images:', uploadError);
+          toast.error('Failed to upload room images.');
           // Continue even if image upload fails
+        }
+      }
+
+      if (roomVideoFile) {
+        try {
+          const formData = new FormData();
+          formData.append('video', roomVideoFile);
+          const uploadResponse = await fetchJson(`/api/admin/rooms/${roomId}/upload-video`, {
+            method: 'POST',
+            body: formData,
+            isFormData: true,
+          });
+          updatedRoom = uploadResponse.room || updatedRoom;
+          toast.success('Room video uploaded successfully!');
+        } catch (uploadError) {
+          console.error('Failed to upload video:', uploadError);
+          toast.error('Failed to upload room video.');
         }
       }
 
@@ -771,10 +889,12 @@ const AdminDashboard = () => {
       category: 'dining',
       description: '',
       image: '',
+      video: '',
       priceRange: '',
       availableTimes: '',
     });
     setServiceImageFile(null);
+    setServiceVideoFile(null);
   };
 
   const handleAddServiceClick = () => {
@@ -790,10 +910,12 @@ const AdminDashboard = () => {
       category: service.category,
       description: service.description,
       image: service.image,
+      video: service.video || '',
       priceRange: service.priceRange,
       availableTimes: service.availableTimes.join(', '),
     });
     setServiceImageFile(null);
+    setServiceVideoFile(null);
     setIsServiceFormOpen(true);
   };
 
@@ -829,6 +951,7 @@ const AdminDashboard = () => {
       category: serviceForm.category as AdminService['category'],
       description: serviceForm.description.trim(),
       image: serviceForm.image.trim(),
+      video: serviceForm.video.trim(),
       priceRange: serviceForm.priceRange.trim(),
       availableTimes,
     };
@@ -861,8 +984,27 @@ const AdminDashboard = () => {
             isFormData: true,
           });
           updatedService = uploadResponse.service || updatedService;
+          toast.success('Service image uploaded successfully!');
         } catch (uploadError) {
           console.error('Admin dashboard: service image upload failed', uploadError);
+          toast.error('Failed to upload service image.');
+        }
+      }
+
+      if (serviceVideoFile) {
+        try {
+          const formData = new FormData();
+          formData.append('video', serviceVideoFile);
+          const uploadResponse = await fetchJson(`/api/services/${serviceId}/upload-video`, {
+            method: 'POST',
+            body: formData,
+            isFormData: true,
+          });
+          updatedService = uploadResponse.service || updatedService;
+          toast.success('Service video uploaded successfully!');
+        } catch (uploadError) {
+          console.error('Admin dashboard: service video upload failed', uploadError);
+          toast.error('Failed to upload service video.');
         }
       }
 
@@ -883,15 +1025,136 @@ const AdminDashboard = () => {
     }
   };
 
-  const toggleServiceCategory = (categoryKey: string) => {
-    const newSet = new Set(expandedServiceCategories);
-    if (newSet.has(categoryKey)) {
-      newSet.delete(categoryKey);
-    } else {
-      newSet.add(categoryKey);
-    }
-    setExpandedServiceCategories(newSet);
+  const resetOfferForm = () => {
+    setOfferForm({
+      title: '',
+      subtitle: '',
+      description: '',
+      price: '',
+      rating: '4.9',
+      reviewCount: '',
+      badgeText: '',
+      expiryDate: '',
+      ctaText: 'Check availability',
+      image: '',
+      active: true,
+    });
+    setOfferImageFile(null);
   };
+
+  const handleAddOfferClick = () => {
+    setEditingOfferId(null);
+    resetOfferForm();
+    setIsOfferFormOpen(true);
+  };
+
+  const handleEditOfferClick = (offer: AdminOffer) => {
+    setEditingOfferId(offer.id);
+    setOfferForm({
+      title: offer.title,
+      subtitle: offer.subtitle,
+      description: offer.description,
+      price: offer.price.toString(),
+      rating: offer.rating.toString(),
+      reviewCount: offer.reviewCount.toString(),
+      badgeText: offer.badgeText,
+      expiryDate: formatOfferDateInput(offer.expiryDate),
+      ctaText: offer.ctaText,
+      image: offer.image,
+      active: offer.active,
+    });
+    setOfferImageFile(null);
+    setIsOfferFormOpen(true);
+  };
+
+  const handleDeleteOffer = async (offerId: string) => {
+    if (!confirm('Are you sure you want to delete this offer?')) {
+      return;
+    }
+
+    try {
+      await fetchJson(`/api/admin/offers/${offerId}`, { method: 'DELETE' });
+      setOffersState((prev) => prev.filter((offer) => offer.id !== offerId));
+      if (editingOfferId === offerId) {
+        setEditingOfferId(null);
+        setIsOfferFormOpen(false);
+        resetOfferForm();
+      }
+    } catch (error) {
+      console.error('Admin dashboard: delete offer failed', error);
+      setLoadError('Failed to delete offer');
+    }
+  };
+
+  const handleOfferSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const payload = {
+      title: offerForm.title.trim(),
+      subtitle: offerForm.subtitle.trim(),
+      description: offerForm.description.trim(),
+      price: Number(offerForm.price) || 0,
+      rating: Number(offerForm.rating) || 4.9,
+      reviewCount: Number(offerForm.reviewCount) || 0,
+      badgeText: offerForm.badgeText.trim(),
+      expiryDate: offerForm.expiryDate || null,
+      ctaText: offerForm.ctaText.trim(),
+      image: offerForm.image.trim(),
+      active: offerForm.active,
+    };
+
+    try {
+      let offerId: string;
+      let updatedOffer: any;
+
+      if (editingOfferId) {
+        updatedOffer = await fetchJson(`/api/admin/offers/${editingOfferId}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        offerId = editingOfferId;
+      } else {
+        updatedOffer = await fetchJson('/api/admin/offers', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        offerId = updatedOffer._id || updatedOffer.id;
+      }
+
+      if (offerImageFile) {
+        try {
+          const formData = new FormData();
+          formData.append('image', offerImageFile);
+          const uploadResponse = await fetchJson(`/api/admin/offers/${offerId}/upload-image`, {
+            method: 'POST',
+            body: formData,
+            isFormData: true,
+          });
+          updatedOffer = uploadResponse.offer || updatedOffer;
+          toast.success('Offer image uploaded successfully!');
+        } catch (uploadError) {
+          console.error('Admin dashboard: offer image upload failed', uploadError);
+          toast.error('Failed to upload offer image.');
+        }
+      }
+
+      if (editingOfferId) {
+        setOffersState((prev) =>
+          prev.map((offer) => (offer.id === editingOfferId ? normalizeOffer(updatedOffer) : offer))
+        );
+      } else {
+        setOffersState((prev) => [normalizeOffer(updatedOffer), ...prev]);
+      }
+
+      setIsOfferFormOpen(false);
+      setEditingOfferId(null);
+      resetOfferForm();
+    } catch (error) {
+      console.error('Admin dashboard: save offer failed', error);
+      setLoadError('Failed to save offer');
+    }
+  };
+
 
   const toggleServiceBookingCategory = (categoryKey: string) => {
     const newSet = new Set(expandedServiceBookingCategories);
@@ -1399,19 +1662,53 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row">
+    <div className="admin-theme min-h-screen flex flex-col lg:flex-row bg-[#3f4a40] text-[#f5f1e8] relative overflow-hidden">
+      {/* Background Gradients */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 15% 20%, rgba(88,105,90,0.35), transparent 55%), radial-gradient(circle at 85% 60%, rgba(98,120,100,0.35), transparent 60%), linear-gradient(180deg, rgba(23,30,24,0.9), rgba(23,30,24,0.55))',
+        }}
+      />
+      <div className="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(90deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:220px_100%]" />
+      <div className="absolute inset-0 pointer-events-none opacity-25 bg-[linear-gradient(180deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:100%_160px]" />
+      
+      <div className="relative w-full flex flex-col lg:flex-row">
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
       {/* Sidebar */}
-      <div className="w-full lg:w-64 bg-stone-900 text-white lg:min-h-screen p-4 sm:p-6 border-b border-stone-800 lg:border-b-0 lg:border-r lg:border-stone-800">
-        <div className="mb-8">
-          <h2 className="text-2xl mb-1">Admin Panel</h2>
-          <p className="text-stone-400 text-sm">{user?.name}</p>
+      <div
+        id="admin-sideview"
+        className={`fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] bg-gradient-to-b from-[#1b1f1a] via-[#262c25] to-[#151814] text-[#f7f1e6] p-4 sm:p-6 border-r border-[#3f473d] shadow-[0_18px_40px_rgba(0,0,0,0.35)] transform transition-transform ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h2 className="text-2xl mb-1 font-serif tracking-wide text-[#f6edda]">Admin Panel</h2>
+            <p className="text-[#cbbfa8] text-sm">{user?.name}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden p-2 rounded-lg text-[#cbbfa8] hover:text-[#fff4d8] hover:bg-[#2b322b]"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <nav className="space-y-2">
+        <nav className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto pr-1">
           <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'dashboard' ? 'bg-white text-stone-900' : 'hover:bg-stone-800'
+            onClick={() => handleNavSelect('dashboard')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border ${
+              activeTab === 'dashboard'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] border-[#e7d6ad] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'border-transparent text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
             }`}
           >
             <LayoutDashboard className="w-5 h-5" />
@@ -1419,9 +1716,11 @@ const AdminDashboard = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('rooms')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'rooms' ? 'bg-white text-stone-900' : 'hover:bg-stone-800'
+            onClick={() => handleNavSelect('rooms')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border ${
+              activeTab === 'rooms'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] border-[#e7d6ad] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'border-transparent text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
             }`}
           >
             <Hotel className="w-5 h-5" />
@@ -1429,9 +1728,11 @@ const AdminDashboard = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('services')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'services' ? 'bg-white text-stone-900' : 'hover:bg-stone-800'
+            onClick={() => handleNavSelect('services')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border ${
+              activeTab === 'services'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] border-[#e7d6ad] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'border-transparent text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
             }`}
           >
             <Bell className="w-5 h-5" />
@@ -1439,9 +1740,23 @@ const AdminDashboard = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('bookings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'bookings' ? 'bg-white text-stone-900' : 'hover:bg-stone-800'
+            onClick={() => handleNavSelect('offers')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border ${
+              activeTab === 'offers'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] border-[#e7d6ad] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'border-transparent text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
+            }`}
+          >
+            <Tag className="w-5 h-5" />
+            <span>Manage Offers</span>
+          </button>
+
+          <button
+            onClick={() => handleNavSelect('bookings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border ${
+              activeTab === 'bookings'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] border-[#e7d6ad] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'border-transparent text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
             }`}
           >
             <Calendar className="w-5 h-5" />
@@ -1449,9 +1764,11 @@ const AdminDashboard = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('service-bookings')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'service-bookings' ? 'bg-white text-stone-900' : 'hover:bg-stone-800'
+            onClick={() => handleNavSelect('service-bookings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border ${
+              activeTab === 'service-bookings'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] border-[#e7d6ad] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'border-transparent text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
             }`}
           >
             <ClipboardList className="w-5 h-5" />
@@ -1459,9 +1776,11 @@ const AdminDashboard = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('payments')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'payments' ? 'bg-white text-stone-900' : 'hover:bg-stone-800'
+            onClick={() => handleNavSelect('payments')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border ${
+              activeTab === 'payments'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] border-[#e7d6ad] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'border-transparent text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
             }`}
           >
             <DollarSign className="w-5 h-5" />
@@ -1469,9 +1788,11 @@ const AdminDashboard = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('guests')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'guests' ? 'bg-white text-stone-900' : 'hover:bg-stone-800'
+            onClick={() => handleNavSelect('guests')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border ${
+              activeTab === 'guests'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] border-[#e7d6ad] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'border-transparent text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
             }`}
           >
             <Users className="w-5 h-5" />
@@ -1479,9 +1800,11 @@ const AdminDashboard = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('contacts')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'contacts' ? 'bg-white text-stone-900' : 'hover:bg-stone-800'
+            onClick={() => handleNavSelect('contacts')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border ${
+              activeTab === 'contacts'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] border-[#e7d6ad] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'border-transparent text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
             }`}
           >
             <MessageSquare className="w-5 h-5" />
@@ -1494,17 +1817,22 @@ const AdminDashboard = () => {
           </button>
 
           <button
-            onClick={() => navigate('/admin/newsletters')}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors hover:bg-stone-800"
+            onClick={() => {
+              setIsSidebarOpen(false);
+              navigate('/admin/newsletters');
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]"
           >
             <Mail className="w-5 h-5" />
             <span>Newsletter</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={() => handleNavSelect('settings')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'settings' ? 'bg-white text-stone-900' : 'hover:bg-stone-800'
+              activeTab === 'settings'
+                ? 'bg-[#e7d6ad] text-[#1b1e18] shadow-[0_10px_25px_rgba(0,0,0,0.25)]'
+                : 'text-[#cbbfa8] hover:bg-[#2d342d] hover:text-[#fff1d6]'
             }`}
           >
             <Settings className="w-5 h-5" />
@@ -1512,11 +1840,11 @@ const AdminDashboard = () => {
           </button>
         </nav>
 
-        <div className="mt-8 pt-8 border-t border-stone-800">
+        <div className="mt-8 pt-8 border-t border-[#3f473d]">
           <Button
             onClick={() => navigate('/')}
             variant="outline"
-            className="w-full"
+            className="w-full border-[#cbbfa8] bg-[#e9dcc2] text-[#2a2216] hover:bg-[#f3e8d2]"
           >
             Back to Website
           </Button>
@@ -1524,104 +1852,149 @@ const AdminDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-4 sm:p-6 lg:p-8">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 relative">
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen((prev) => !prev)}
+            className="inline-flex items-center gap-2 rounded-lg border border-[#3f473d] bg-[#1c211d] px-3 py-2 text-sm font-medium text-[#f7f1e6] shadow-[0_8px_20px_rgba(0,0,0,0.25)] transition-colors hover:bg-[#232a22]"
+            aria-expanded={isSidebarOpen}
+            aria-controls="admin-sideview"
+          >
+            {isSidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            {isSidebarOpen ? 'Close' : 'Side View'}
+          </button>
+          <span className="text-sm text-[#cbbfa8]" style={{ fontFamily: "'Great Vibes', cursive" }}>Admin Dashboard</span>
+        </div>
         {isLoading && (
-          <div className="mb-6 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600">
+          <div className="mb-6 rounded-xl border border-[#4b5246] bg-[#343a30] px-4 py-3 text-sm text-[#c9c3b6]">
             Loading admin data...
           </div>
         )}
         {loadError && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-6 rounded-xl border border-red-300/60 bg-[#3a2f2f] px-4 py-3 text-sm text-red-200">
             {loadError}
           </div>
         )}
         
         {activeTab === 'dashboard' && (
           <div>
-            <h1 className="text-4xl mb-8">Dashboard Overview</h1>
+            <div className="mb-8 rounded-[28px] border border-[#5b6255] bg-[#4a5449]/40 p-6 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h1 className="mt-2 text-4xl sm:text-5xl font-serif tracking-tight text-[#efece6]" style={{ fontFamily: "'Great Vibes', cursive" }}>
+                    Dashboard Overview
+                  </h1>
+                  <p className="mt-2 text-xs uppercase tracking-[0.35em] text-[#c9c3b6]">
+                    Luxury performance brief
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-[#5b6255] bg-[#3f463d]/60 px-4 py-3 text-sm">
+                    <p className="text-[#c9c3b6]">Live occupancy</p>
+                    <p className="mt-1 text-lg font-serif text-[#efece6]">{stats.occupancyRate}%</p>
+                  </div>
+                  <div className="rounded-2xl border border-[#5b6255] bg-[#3f463d]/60 px-4 py-3 text-sm">
+                    <p className="text-[#c9c3b6]">Revenue today</p>
+                    <p className="mt-1 text-lg font-serif text-[#efece6]">${stats.totalRevenue.toFixed(0)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-[#5b6255] bg-[#3f463d]/60 px-4 py-3 text-sm">
+                    <p className="text-[#c9c3b6]">Bookings</p>
+                    <p className="mt-1 text-lg font-serif text-[#efece6]">{stats.totalBookings}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
+              <div className="bg-gradient-to-br from-[#fcf8f1] via-[#f6ead7] to-[#efe1c6] rounded-3xl p-6 shadow-[0_18px_40px_rgba(16,18,16,0.18)] border border-[#e7d6b9] text-[#1c1f1a]">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
-                    <Hotel className="w-6 h-6 text-slate-700" />
+                  <div className="w-12 h-12 bg-[#f1dfc0] rounded-xl flex items-center justify-center">
+                    <Hotel className="w-6 h-6 text-[#6f5122]" />
                   </div>
-                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <TrendingUp className="w-5 h-5 text-[#a27c2f]" />
                 </div>
-                <div className="text-3xl mb-1">{stats.totalRooms}</div>
-                <div className="text-stone-600 text-sm">Total Rooms</div>
+                <div className="text-3xl mb-1 font-serif">{stats.totalRooms}</div>
+                <div className="text-[#6b6256] text-sm">Total Rooms</div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
+              <div className="bg-gradient-to-br from-[#fcf8f1] via-[#f6ead7] to-[#efe1c6] rounded-3xl p-6 shadow-[0_18px_40px_rgba(16,18,16,0.18)] border border-[#e7d6b9] text-[#1c1f1a]">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <Hotel className="w-6 h-6 text-blue-600" />
+                  <div className="w-12 h-12 bg-[#f1dfc0] rounded-xl flex items-center justify-center">
+                    <Hotel className="w-6 h-6 text-[#6f5122]" />
                   </div>
-                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <TrendingUp className="w-5 h-5 text-[#a27c2f]" />
                 </div>
-                <div className="text-3xl mb-1">{stats.availableRooms}</div>
-                <div className="text-stone-600 text-sm">Available Rooms</div>
+                <div className="text-3xl mb-1 font-serif">{stats.availableRooms}</div>
+                <div className="text-[#6b6256] text-sm">Available Rooms</div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
+              <div className="bg-gradient-to-br from-[#fcf8f1] via-[#f6ead7] to-[#efe1c6] rounded-3xl p-6 shadow-[0_18px_40px_rgba(16,18,16,0.18)] border border-[#e7d6b9] text-[#1c1f1a]">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                    <Calendar className="w-6 h-6 text-green-600" />
+                  <div className="w-12 h-12 bg-[#f1dfc0] rounded-xl flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-[#6f5122]" />
                   </div>
-                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <TrendingUp className="w-5 h-5 text-[#a27c2f]" />
                 </div>
-                <div className="text-3xl mb-1">{stats.totalBookings}</div>
-                <div className="text-stone-600 text-sm">Total Bookings</div>
+                <div className="text-3xl mb-1 font-serif">{stats.totalBookings}</div>
+                <div className="text-[#6b6256] text-sm">Total Bookings</div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
+              <div className="bg-gradient-to-br from-[#fcf8f1] via-[#f6ead7] to-[#efe1c6] rounded-3xl p-6 shadow-[0_18px_40px_rgba(16,18,16,0.18)] border border-[#e7d6b9] text-[#1c1f1a]">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-amber-600" />
+                  <div className="w-12 h-12 bg-[#f1dfc0] rounded-xl flex items-center justify-center">
+                    <DollarSign className="w-6 h-6 text-[#6f5122]" />
                   </div>
-                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <TrendingUp className="w-5 h-5 text-[#a27c2f]" />
                 </div>
-                <div className="text-3xl mb-1">${stats.totalRevenue.toFixed(0)}</div>
-                <div className="text-stone-600 text-sm">Total Revenue</div>
+                <div className="text-3xl mb-1 font-serif">${stats.totalRevenue.toFixed(0)}</div>
+                <div className="text-[#6b6256] text-sm">Total Revenue</div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
+              <div className="bg-gradient-to-br from-[#fcf8f1] via-[#f6ead7] to-[#efe1c6] rounded-3xl p-6 shadow-[0_18px_40px_rgba(16,18,16,0.18)] border border-[#e7d6b9] text-[#1c1f1a]">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-purple-600" />
+                  <div className="w-12 h-12 bg-[#f1dfc0] rounded-xl flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-[#6f5122]" />
                   </div>
-                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <TrendingUp className="w-5 h-5 text-[#a27c2f]" />
                 </div>
-                <div className="text-3xl mb-1">{stats.occupancyRate}%</div>
-                <div className="text-stone-600 text-sm">Occupancy Rate</div>
+                <div className="text-3xl mb-1 font-serif">{stats.occupancyRate}%</div>
+                <div className="text-[#6b6256] text-sm">Occupancy Rate</div>
               </div>
             </div>
 
             {/* Recent Room Bookings */}
-            <div className="bg-white rounded-3xl p-8 shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl">Recent Room Bookings</h2>
-                <Button size="sm" variant="outline" onClick={() => setActiveTab('bookings')}>View All</Button>
+            <div className="rounded-3xl border border-[#5b6255] bg-[#4a5449]/40 p-8 text-[#efece6] shadow-[0_18px_40px_rgba(16,18,16,0.18)] backdrop-blur-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <h2 className="text-2xl font-serif">Recent Room Bookings</h2>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setActiveTab('bookings')}
+                  className="border-[#6b7264] bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6]"
+                >
+                  View All
+                </Button>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-stone-200">
-                      <th className="text-left py-3 px-4 text-stone-600">Booking ID</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Guest</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Room</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Check-in</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Status</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Payment</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Amount</th>
+                    <tr className="border-b border-[#5b6255]">
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Booking ID</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Guest</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Room</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Check-in</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Status</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Payment</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentBookings.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-8 px-4 text-center text-stone-500">
+                        <td colSpan={7} className="py-8 px-4 text-center text-[#c9c3b6]">
                           No recent bookings
                         </td>
                       </tr>
@@ -1629,7 +2002,7 @@ const AdminDashboard = () => {
                       recentBookings.map((booking) => {
                         const room = roomsState.find(r => r.id === booking.roomId);
                         return (
-                          <tr key={booking.id} className="border-b border-stone-100">
+                          <tr key={booking.id} className="border-b border-[#4b5246]">
                             <td className="py-4 px-4">{booking.id.substring(0, 8)}...</td>
                             <td className="py-4 px-4">{booking.guestName}</td>
                             <td className="py-4 px-4">{room?.name || 'N/A'}</td>
@@ -1661,28 +2034,35 @@ const AdminDashboard = () => {
             </div>
 
             {/* Recent Service Bookings */}
-            <div className="bg-white rounded-3xl p-8 shadow-sm">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl">Recent Service Bookings</h2>
-                <Button size="sm" variant="outline" onClick={() => setActiveTab('service-bookings')}>View All</Button>
+            <div className="rounded-3xl border border-[#5b6255] bg-[#4a5449]/40 p-8 text-[#efece6] shadow-[0_18px_40px_rgba(16,18,16,0.18)] backdrop-blur-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <h2 className="text-2xl font-serif">Recent Service Bookings</h2>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setActiveTab('service-bookings')}
+                  className="border-[#6b7264] bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6]"
+                >
+                  View All
+                </Button>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-stone-200">
-                      <th className="text-left py-3 px-4 text-stone-600">Booking ID</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Guest</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Service</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Date</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Time</th>
-                      <th className="text-left py-3 px-4 text-stone-600">Status</th>
+                    <tr className="border-b border-[#5b6255]">
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Booking ID</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Guest</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Service</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Date</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Time</th>
+                      <th className="text-left py-3 px-4 text-[#c9c3b6]">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentServiceBookings.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 px-4 text-center text-stone-500">
+                        <td colSpan={6} className="py-8 px-4 text-center text-[#c9c3b6]">
                           No recent service bookings
                         </td>
                       </tr>
@@ -1690,7 +2070,7 @@ const AdminDashboard = () => {
                       recentServiceBookings.map((booking) => {
                         const service = servicesState.find(s => s.id === booking.serviceId);
                         return (
-                          <tr key={booking.id} className="border-b border-stone-100">
+                          <tr key={booking.id} className="border-b border-[#4b5246]">
                             <td className="py-4 px-4">{booking.id.substring(0, 8)}...</td>
                             <td className="py-4 px-4">{booking.guestName}</td>
                             <td className="py-4 px-4">{service?.name || booking.serviceName || 'N/A'}</td>
@@ -1714,9 +2094,9 @@ const AdminDashboard = () => {
 
         {activeTab === 'rooms' && (
           <div>
-            <div className="flex justify-between items-center mb-8">
-              <h1 className="text-4xl">Manage Rooms</h1>
-              <Button onClick={handleAddRoomClick}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-8">
+              <h1 className="text-3xl sm:text-4xl" style={{ fontFamily: "'Great Vibes', cursive" }}>Manage Rooms</h1>
+              <Button onClick={handleAddRoomClick} className="bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6]">
                 <Plus className="w-5 h-5 mr-2" />
                 Add New Room
               </Button>
@@ -1756,8 +2136,10 @@ const AdminDashboard = () => {
                   <Input
                     type="number"
                     placeholder="Max guests"
-                    value={roomForm.maxGuests}
-                    onChange={(event) => setRoomForm({ ...roomForm, maxGuests: event.target.value })}
+                    value={roomForm.maxGuests ?? ''}
+                    onChange={(event) =>
+                      setRoomForm((prev) => ({ ...prev, maxGuests: event.target.value }))
+                    }
                   />
                   <Input
                     type="number"
@@ -1794,6 +2176,21 @@ const AdminDashboard = () => {
                     </div>
                   )}
                 </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-stone-700 mb-2">
+                    Upload Room Video (optional)
+                  </label>
+                  <Input
+                    type="file"
+                    accept="video/mp4,video/webm,video/ogg"
+                    onChange={(event) => setRoomVideoFile(event.target.files?.[0] || null)}
+                    className="cursor-pointer"
+                  />
+                  {roomVideoFile && (
+                    <p className="mt-2 text-sm text-stone-600">Selected: {roomVideoFile.name}</p>
+                  )}
+                </div>
                 
                 <Textarea
                   placeholder="Description"
@@ -1819,10 +2216,10 @@ const AdminDashboard = () => {
                     Available
                   </label>
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsRoomFormOpen(false)}>
+                    <Button type="button" variant="outline" onClick={() => setIsRoomFormOpen(false)} className="bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6]">
                       Cancel
                     </Button>
-                    <Button type="submit">
+                    <Button type="submit" className="bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6]">
                       {editingRoomId ? 'Update Room' : 'Add Room'}
                     </Button>
                   </div>
@@ -1831,57 +2228,109 @@ const AdminDashboard = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {roomsState.map((room) => {
+              {roomsState.slice(0, 5).map((room) => {
                 const imageUrl = room.images[0];
-                // Add API_BASE prefix for uploaded images
-                const displayImage = imageUrl?.startsWith('/uploads/') 
-                  ? `${API_BASE}${imageUrl}` 
+                const displayImage = imageUrl?.startsWith('/uploads/')
+                  ? `${API_BASE}${imageUrl}`
                   : imageUrl;
+                const displayVideo = room.video?.startsWith('/uploads/')
+                  ? `${API_BASE}${room.video}`
+                  : room.video;
                 
                 return (
-                  <div key={room.id} className="bg-white rounded-3xl overflow-hidden shadow-sm">
-                    <img
-                      src={displayImage}
-                      alt={room.name}
-                      className="w-full h-48 object-cover"
-                    />
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="text-xl mb-1">{room.name}</h3>
-                        <p className="text-stone-600">{room.type}</p>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-sm ${
-                        room.available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
+                  <div
+                    key={room.id}
+                    className="group rounded-2xl border border-[#5b6659] bg-[#2f3a32]/90 overflow-hidden shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl"
+                  >
+                    <div className="relative h-40 overflow-hidden">
+                      {displayVideo ? (
+                        <video
+                          src={displayVideo}
+                          className="h-full w-full object-cover"
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          poster={displayImage || undefined}
+                        />
+                      ) : displayImage ? (
+                        <img
+                          src={displayImage}
+                          alt={room.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="h-full w-full bg-[#222a22]" />
+                      )}
+                      <div className="absolute top-3 left-3 rounded-full bg-[#1e2520]/80 px-3 py-1 text-[10px] text-[#d7d2c5] border border-[#5b6659]">
                         {room.available ? 'Available' : 'Occupied'}
-                      </span>
+                      </div>
                     </div>
 
-                    <div className="text-2xl mb-4">${room.price}/night</div>
+                    <div className="p-4 text-[#efece6]">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-base text-[#efece6]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                            {room.name}
+                          </h3>
+                          <p className="text-xs text-[#cfc9bb] mt-1">
+                            {room.type} · {room.maxGuests} guests
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-[#f0e7d6]">$ {room.price} night</div>
+                          <div className="text-[10px] text-[#cfc9bb]">4.9 (84)</div>
+                        </div>
+                      </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => handleEditRoomClick(room)}
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-red-600"
-                        onClick={() => handleDeleteRoom(room.id)}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </Button>
+                      <div className="mt-3 flex items-center gap-3 text-[11px] text-[#cfc9bb]">
+                        <span className="inline-flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" />
+                          {room.maxGuests} guests
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Maximize2 className="w-3.5 h-3.5" />
+                          {room.size} m2
+                        </span>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {room.amenities.slice(0, 4).map((amenity, idx) => {
+                          const Icon = amenityIcons[amenity] || Coffee;
+                          return (
+                            <span
+                              key={`${room.id}-${amenity}-${idx}`}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[#5b6659] bg-[#243026] px-2.5 py-1 text-[10px] text-[#d7d2c5]"
+                            >
+                              <Icon className="w-3 h-3" />
+                              {amenity}
+                            </span>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-4 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 rounded-full border border-[#5b6659] bg-transparent text-[#efece6] hover:bg-white/10"
+                          onClick={() => handleEditRoomClick(room)}
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 rounded-full border border-rose-300/40 bg-transparent text-rose-200 hover:bg-rose-500/10"
+                          onClick={() => handleDeleteRoom(room.id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
                 );
               })}
             </div>
@@ -1890,20 +2339,28 @@ const AdminDashboard = () => {
 
         {activeTab === 'services' && (
           <div>
-            <div className="flex justify-between items-start mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-8">
               <div>
-                <h1 className="text-4xl font-bold text-stone-900">Services</h1>
-                <p className="text-stone-600 mt-1 text-sm">Manage hotel offerings</p>
+                <h1 className="text-3xl sm:text-4xl font-serif text-[#f6edda]" style={{ fontFamily: "'Great Vibes', cursive" }}>Services</h1>
+                <p className="text-[#cbbfa8] mt-1 text-sm">Manage hotel offerings</p>
               </div>
-              <Button onClick={handleAddServiceClick} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">
-                <Plus className="w-4 h-4 mr-2" />
+              <Button
+                onClick={handleAddServiceClick}
+                className="bg-[#d7d0bf] text-[#1f241f] hover:bg-[#efece6] shadow-[0_12px_24px_rgba(0,0,0,0.25)]"
+              >
+                <Plus className="w-4 h-4 mr-2"/>
                 Add Service
               </Button>
             </div>
 
             {isServiceFormOpen && (
-              <form onSubmit={handleServiceSubmit} className="bg-white rounded-2xl p-6 shadow-sm mb-8 border border-stone-200">
-                <h3 className="text-lg font-bold text-stone-900 mb-4">{editingServiceId ? 'Edit Service' : 'Add Service'}</h3>
+              <form
+                onSubmit={handleServiceSubmit}
+                className="bg-[#fbf8f2] rounded-2xl p-6 shadow-[0_18px_40px_rgba(16,18,16,0.14)] mb-8 border border-[#e7d6b9] text-[#1c1f1a]"
+              >
+                <h3 className="text-lg font-serif mb-4">
+                  {editingServiceId ? 'Edit Service' : 'Add Service'}
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                   <Input
                     placeholder="Service name"
@@ -1912,7 +2369,7 @@ const AdminDashboard = () => {
                     required
                   />
                   <select
-                    className="h-9 rounded-lg border border-stone-200 px-3 text-sm"
+                    className="h-9 rounded-lg border border-[#d6c2a1] bg-white px-3 text-sm"
                     value={serviceForm.category}
                     onChange={(event) =>
                       setServiceForm({
@@ -1932,7 +2389,7 @@ const AdminDashboard = () => {
                     onChange={(event) => setServiceForm({ ...serviceForm, priceRange: event.target.value })}
                   />
                   <div className="space-y-1">
-                    <label className="text-xs text-stone-500">Image URL (optional)</label>
+                    <label className="text-xs text-[#6b6256]">Image URL (optional)</label>
                     <Input
                       placeholder="https://..."
                       value={serviceForm.image}
@@ -1940,14 +2397,25 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-stone-500">Upload image (optional)</label>
+                    <label className="text-xs text-[#6b6256]">Upload image (optional)</label>
                     <Input
                       type="file"
                       accept="image/*"
                       onChange={(event) => setServiceImageFile(event.target.files?.[0] || null)}
                     />
                     {serviceImageFile && (
-                      <p className="text-xs text-stone-500">Selected: {serviceImageFile.name}</p>
+                      <p className="text-xs text-[#6b6256]">Selected: {serviceImageFile.name}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-[#6b6256]">Upload video (optional)</label>
+                    <Input
+                      type="file"
+                      accept="video/mp4,video/webm,video/ogg"
+                      onChange={(event) => setServiceVideoFile(event.target.files?.[0] || null)}
+                    />
+                    {serviceVideoFile && (
+                      <p className="text-xs text-[#6b6256]">Selected: {serviceVideoFile.name}</p>
                     )}
                   </div>
                 </div>
@@ -1964,10 +2432,15 @@ const AdminDashboard = () => {
                   className="mb-4"
                 />
                 <div className="flex gap-2 justify-end">
-                  <Button type="button" variant="outline" onClick={() => setIsServiceFormOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsServiceFormOpen(false)}
+                    className="border-[#d6c2a1] text-[#5e4a1f] hover:bg-[#f3e6cf]"
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Button type="submit" className="bg-amber-500 hover:bg-amber-400 text-stone-900">
                     {editingServiceId ? 'Update' : 'Add'}
                   </Button>
                 </div>
@@ -1975,99 +2448,295 @@ const AdminDashboard = () => {
             )}
 
             {servicesState.length === 0 ? (
-              <div className="text-center py-16 bg-stone-50 rounded-2xl border border-dashed border-stone-300">
-                <p className="text-stone-600">No services available</p>
+              <div className="text-center py-16 bg-[#2f3931] rounded-2xl border border-dashed border-[#556054]">
+                <p className="text-[#d6cdb8]">No services available</p>
               </div>
             ) : (
-              <div className="space-y-8">
-                {serviceCategories.map((category) => {
-                  const categoryServices = servicesState.filter((service) => service.category === category.key);
-                  const categoryColor: Record<string, string> = {
-                    restaurant: 'border-red-500',
-                    spa: 'border-purple-500',
-                    bar: 'border-blue-500',
-                    dining: 'border-green-500',
-                  };
-                  const isExpanded = expandedServiceCategories.has(category.key);
-
-                  return (
-                    <div key={category.key}>
+              <div>
+                <div className="flex flex-wrap gap-3 mb-6">
+                  {serviceCategories.map((category) => {
+                    const isActive = activeServiceCategory === category.key;
+                    return (
                       <button
-                        onClick={() => toggleServiceCategory(category.key)}
-                        className={`w-full flex items-center justify-between gap-3 mb-4 pb-3 border-b-2 ${categoryColor[category.key] || 'border-stone-300'} hover:bg-stone-50 px-2 py-2 -mx-2 rounded transition-colors`}
+                        key={category.key}
+                        type="button"
+                        onClick={() => setActiveServiceCategory(category.key)}
+                        className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide border transition-colors ${
+                          isActive
+                            ? 'bg-amber-500 text-stone-900 border-amber-400'
+                            : 'bg-[#2f3931] text-[#d7d2c5] border-[#5b6659] hover:bg-[#364036]'
+                        }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="text-2xl">{'🍴🧖🍹🍽️'['restaurant spa bar dining'.split(' ').indexOf(category.key)]}</div>
-                          <div className="text-left">
-                            <h2 className="text-lg font-bold text-stone-900">{category.label}</h2>
-                            <p className="text-xs text-stone-500">{categoryServices.length} service{categoryServices.length !== 1 ? 's' : ''}</p>
+                        {category.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {servicesForActiveCategory.length === 0 ? (
+                  <p className="text-sm text-[#cbbfa8] py-8">No services in this category</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    {servicesForActiveCategory.map((service) => {
+                      const displayImage = service.image?.startsWith('/uploads/')
+                        ? `${API_BASE}${service.image}`
+                        : service.image;
+                      const displayVideo = service.video?.startsWith('/uploads/')
+                        ? `${API_BASE}${service.video}`
+                        : service.video;
+
+                      return (
+                        <div
+                          key={service.id}
+                          className="group rounded-2xl border border-[#5b6659] bg-[#2f3a32]/90 overflow-hidden shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl"
+                        >
+                          <div className="relative h-40 overflow-hidden">
+                            {displayVideo ? (
+                              <video
+                                src={displayVideo}
+                                className="h-full w-full object-cover"
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                poster={displayImage || undefined}
+                              />
+                            ) : displayImage ? (
+                              <img
+                                src={displayImage}
+                                alt={service.name}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="h-full w-full bg-[#222a22]" />
+                            )}
+                            <div className="absolute top-3 left-3 rounded-full bg-[#1e2520]/80 px-3 py-1 text-[10px] text-[#d7d2c5] border border-[#5b6659]">
+                              Available
+                            </div>
+                          </div>
+                          <div className="p-4 text-[#efece6]">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="text-base text-[#efece6]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                                  {service.name}
+                                </h3>
+                                <p className="text-xs text-[#cfc9bb] mt-1">
+                                  {serviceCategoryLabel(service.category)}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm text-[#f0e7d6]">{service.priceRange || 'Custom'} </div>
+                                <div className="text-[10px] text-[#cfc9bb]">Hotel service</div>
+                              </div>
+                            </div>
+
+                            <p className="mt-3 text-[11px] text-[#cfc9bb] line-clamp-2">{service.description}</p>
+
+                            {service.availableTimes.length > 0 && (
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                {service.availableTimes.slice(0, 4).map((time) => (
+                                  <span
+                                    key={`${service.id}-${time}`}
+                                    className="inline-flex items-center rounded-full border border-[#5b6659] bg-[#243026] px-2.5 py-1 text-[10px] text-[#d7d2c5]"
+                                  >
+                                    {time}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="mt-4 flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 rounded-full border border-[#5b6659] bg-transparent text-[#efece6] hover:bg-white/10"
+                                onClick={() => handleEditServiceClick(service)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 rounded-full border border-rose-300/40 bg-transparent text-rose-200 hover:bg-rose-500/10"
+                                onClick={() => handleDeleteService(service.id)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                        <div className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
-                          <svg className="w-5 h-5 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                          </svg>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'offers' && (
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-8">
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-bold text-stone-900" style={{ fontFamily: "'Great Vibes', cursive" }}>Offers</h1>
+                <p className="text-stone-600 mt-1 text-sm">Create and publish seasonal promotions.</p>
+              </div>
+              <Button onClick={handleAddOfferClick} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Offer
+              </Button>
+            </div>
+
+            {isOfferFormOpen && (
+              <form onSubmit={handleOfferSubmit} className="bg-white rounded-2xl p-6 shadow-sm mb-8 border border-stone-200">
+                <h3 className="text-lg font-bold text-stone-900 mb-4">{editingOfferId ? 'Edit Offer' : 'Add Offer'}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                  <Input
+                    placeholder="Offer title"
+                    value={offerForm.title}
+                    onChange={(event) => setOfferForm({ ...offerForm, title: event.target.value })}
+                    required
+                  />
+                  <Input
+                    placeholder="Subtitle"
+                    value={offerForm.subtitle}
+                    onChange={(event) => setOfferForm({ ...offerForm, subtitle: event.target.value })}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Price"
+                    value={offerForm.price}
+                    onChange={(event) => setOfferForm({ ...offerForm, price: event.target.value })}
+                  />
+                  <Input
+                    type="number"
+                    step="0.1"
+                    placeholder="Rating"
+                    value={offerForm.rating}
+                    onChange={(event) => setOfferForm({ ...offerForm, rating: event.target.value })}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Review count"
+                    value={offerForm.reviewCount}
+                    onChange={(event) => setOfferForm({ ...offerForm, reviewCount: event.target.value })}
+                  />
+                  <Input
+                    placeholder="Badge text (e.g. 25% OFF)"
+                    value={offerForm.badgeText}
+                    onChange={(event) => setOfferForm({ ...offerForm, badgeText: event.target.value })}
+                  />
+                  <Input
+                    type="date"
+                    placeholder="Expiry date"
+                    value={offerForm.expiryDate}
+                    onChange={(event) => setOfferForm({ ...offerForm, expiryDate: event.target.value })}
+                  />
+                  <Input
+                    placeholder="CTA text"
+                    value={offerForm.ctaText}
+                    onChange={(event) => setOfferForm({ ...offerForm, ctaText: event.target.value })}
+                  />
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-xs text-stone-500">Image URL (optional)</label>
+                    <Input
+                      placeholder="https://..."
+                      value={offerForm.image}
+                      onChange={(event) => setOfferForm({ ...offerForm, image: event.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-xs text-stone-500">Upload image (optional)</label>
+                    <Input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={(event) => setOfferImageFile(event.target.files?.[0] || null)}
+                    />
+                    {offerImageFile && (
+                      <p className="text-xs text-stone-500">Selected: {offerImageFile.name}</p>
+                    )}
+                  </div>
+                </div>
+                <Textarea
+                  placeholder="Offer description"
+                  value={offerForm.description}
+                  onChange={(event) => setOfferForm({ ...offerForm, description: event.target.value })}
+                  className="mb-4"
+                />
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={offerForm.active}
+                      onChange={(event) => setOfferForm({ ...offerForm, active: event.target.checked })}
+                    />
+                    Active
+                  </label>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={() => setIsOfferFormOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                      {editingOfferId ? 'Update' : 'Add'}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            )}
+
+            {offersState.length === 0 ? (
+              <div className="text-center py-16 bg-stone-50 rounded-2xl border border-dashed border-stone-300">
+                <p className="text-stone-600">No offers available</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {offersState.map((offer) => {
+                  const displayImage = offer.image?.startsWith('/uploads/')
+                    ? `${API_BASE}${offer.image}`
+                    : offer.image;
+                  return (
+                    <div key={offer.id} className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+                      {displayImage ? (
+                        <div className="h-40 bg-stone-200 overflow-hidden">
+                          <img src={displayImage} alt={offer.title} className="w-full h-full object-cover" />
                         </div>
-                      </button>
-
-                      {isExpanded && (
-                        <>
-                          {categoryServices.length === 0 ? (
-                            <p className="text-sm text-stone-500 py-8">No services</p>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                              {categoryServices.map((service) => {
-                                const displayImage = service.image?.startsWith('/uploads/')
-                                  ? `${API_BASE}${service.image}`
-                                  : service.image;
-
-                                return (
-                                <div key={service.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden hover:shadow-md transition-shadow">
-                                  {displayImage ? (
-                                    <div className="h-32 bg-stone-200 overflow-hidden">
-                                      <img src={displayImage} alt={service.name} className="w-full h-full object-cover" />
-                                    </div>
-                                  ) : (
-                                    <div className="h-32 bg-gradient-to-br from-stone-100 to-stone-200" />
-                                  )}
-                                  <div className="p-4">
-                                    <h3 className="font-bold text-stone-900 mb-1 line-clamp-1">{service.name}</h3>
-                                    <p className="text-xs text-stone-500 mb-2">{service.priceRange}</p>
-                                    <p className="text-xs text-stone-600 mb-3 line-clamp-2">{service.description}</p>
-                                    {service.availableTimes.length > 0 && (
-                                      <div className="mb-3">
-                                        <div className="text-xs text-stone-500 mb-1">Times:</div>
-                                        <div className="flex flex-wrap gap-1">
-                                          {service.availableTimes.map((time) => (
-                                            <span key={`${service.id}-${time}`} className="px-2 py-1 text-xs bg-stone-100 rounded text-stone-700">
-                                              {time}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                    <div className="flex gap-2 pt-3 border-t border-stone-100">
-                                      <button
-                                        onClick={() => handleEditServiceClick(service)}
-                                        className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteService(service.id)}
-                                        className="flex-1 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                              })}
-                            </div>
-                          )}
-                        </>
+                      ) : (
+                        <div className="h-40 bg-stone-100" />
                       )}
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div>
+                            <h3 className="font-semibold text-stone-900">{offer.title}</h3>
+                            {offer.subtitle && (
+                              <p className="text-xs text-stone-500 mt-1">{offer.subtitle}</p>
+                            )}
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-full text-xs ${offer.active ? 'bg-green-100 text-green-800' : 'bg-stone-200 text-stone-700'}`}>
+                            {offer.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-stone-600 line-clamp-2 mb-3">{offer.description || 'No description yet.'}</p>
+                        <div className="flex items-center justify-between text-xs text-stone-600 mb-4">
+                          <span>${offer.price.toFixed(0)}</span>
+                          {offer.expiryDate && (
+                            <span>Expiry {formatOfferDateInput(offer.expiryDate)}</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2 pt-3 border-t border-stone-100">
+                          <button
+                            onClick={() => handleEditOfferClick(offer)}
+                            className="flex-1 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOffer(offer.id)}
+                            className="flex-1 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
@@ -2078,8 +2747,8 @@ const AdminDashboard = () => {
 
         {activeTab === 'bookings' && (
           <div>
-            <div className="flex justify-between items-center mb-8">
-              <h1 className="text-4xl font-bold">All Bookings</h1>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-8">
+              <h1 className="text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Great Vibes', cursive" }}>All Bookings</h1>
               <div className="flex gap-3 items-center flex-wrap">
                 <select
                   className="px-4 py-2 border border-stone-200 rounded-xl"
@@ -2319,7 +2988,7 @@ const AdminDashboard = () => {
                           <td className="py-4 px-4">${booking.totalPrice.toFixed(2)}</td>
                           <td className="py-4 px-4">
                             {booking.idVerified === 'approved' ? (
-                              <span className="text-sm text-green-600 font-medium">✓ Approved</span>
+                              <span className="text-sm text-green-600 font-medium">Approved</span>
                             ) : (
                               <div className="flex flex-wrap gap-2">
                                 <Button
@@ -2357,7 +3026,7 @@ const AdminDashboard = () => {
           <div>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-8">
               <div>
-                <h1 className="text-4xl font-bold text-stone-900">Service Bookings</h1>
+                <h1 className="text-4xl font-bold text-stone-900" style={{ fontFamily: "'Great Vibes', cursive" }}>Service Bookings</h1>
                 <p className="text-stone-600 mt-1 text-sm">Track customer reservations</p>
               </div>
               <div className="flex flex-wrap gap-3 items-center">
@@ -2537,7 +3206,7 @@ const AdminDashboard = () => {
                         className={`w-full flex items-center justify-between gap-3 mb-4 pb-3 border-b-2 ${categoryColor[category.key] || 'border-stone-300'} hover:bg-stone-50 px-2 py-2 -mx-2 rounded transition-colors`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="text-2xl">{'🍴🧖🍹🍽️'['restaurant spa bar dining'.split(' ').indexOf(category.key)]}</div>
+                          <div className="text-2xl">{'ðŸ´ðŸ§–ðŸ¹ðŸ½ï¸'['restaurant spa bar dining'.split(' ').indexOf(category.key)]}</div>
                           <div className="text-left">
                             <h2 className="text-lg font-bold text-stone-900">{category.label}</h2>
                             <p className="text-xs text-stone-500">{categoryBookings.length} booking{categoryBookings.length !== 1 ? 's' : ''}</p>
@@ -2601,7 +3270,7 @@ const AdminDashboard = () => {
 
         {activeTab === 'payments' && (
           <div>
-            <h1 className="text-4xl mb-8">Payment Management</h1>
+            <h1 className="text-3xl sm:text-4xl mb-8" style={{ fontFamily: "'Great Vibes', cursive" }}>Payment Management</h1>
             <div className="bg-white rounded-3xl p-8 shadow-sm">
               {bookingsState.length === 0 ? (
                 <div className="text-center py-16 text-stone-600">No payment records yet.</div>
@@ -2643,7 +3312,7 @@ const AdminDashboard = () => {
 
         {activeTab === 'guests' && (
           <div>
-            <h1 className="text-4xl mb-8">Guest Management</h1>
+            <h1 className="text-3xl sm:text-4xl mb-8" style={{ fontFamily: "'Great Vibes', cursive" }}>Guest Management</h1>
             <div className="bg-white rounded-3xl p-8 shadow-sm">
               {usersState.length === 0 ? (
                 <div className="text-center py-16 text-stone-600">No guests found.</div>
@@ -2667,8 +3336,8 @@ const AdminDashboard = () => {
                         return (
                           <tr key={guest.id} className="border-b border-stone-100">
                             <td className="py-4 px-4">{guest.name}</td>
-                            <td className="py-4 px-4">{guest.email || '—'}</td>
-                            <td className="py-4 px-4">{guest.phone || '—'}</td>
+                            <td className="py-4 px-4">{guest.email || 'â€”'}</td>
+                            <td className="py-4 px-4">{guest.phone || 'â€”'}</td>
                             <td className="py-4 px-4">{guest.role}</td>
                             <td className="py-4 px-4">{bookingCount}</td>
                           </tr>
@@ -2684,13 +3353,13 @@ const AdminDashboard = () => {
 
         {activeTab === 'contacts' && (
           <div>
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
               <div>
-                <h1 className="text-4xl mb-2">Contact Messages</h1>
+                <h1 className="text-3xl sm:text-4xl mb-2" style={{ fontFamily: "'Great Vibes', cursive" }}>Contact Messages</h1>
                 <p className="text-stone-600">Manage customer inquiries and feedback</p>
               </div>
               {contactStatsState && (
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-4">
                   <div className="bg-white rounded-2xl px-6 py-3 shadow-sm">
                     <div className="text-sm text-stone-500">Total</div>
                     <div className="text-2xl font-bold">{contactStatsState.total}</div>
@@ -2831,212 +3500,226 @@ const AdminDashboard = () => {
 
         {activeTab === 'settings' && (
           <div>
-            <h1 className="text-4xl mb-2">Settings</h1>
-            <p className="text-stone-600 mb-8">Configure system settings</p>
+            <h1 className="text-4xl mb-2 text-[#efece6]" style={{ fontFamily: "'Great Vibes', cursive" }}>Settings</h1>
+            <p className="text-[#cfc9bb] mb-8">Configure system settings</p>
             {settingsSavedAt && (
-              <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              <div className="mb-6 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
                 Settings updated at {settingsSavedAt}.
               </div>
             )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h3 className="text-xl mb-4">Profile Settings</h3>
+              <div className="bg-[#2f3a32]/90 rounded-3xl p-6 shadow-sm border border-[#5b6659]">
+                <h3 className="text-xl mb-4 text-[#efece6]">Profile Settings</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-stone-600">Name</label>
+                    <label className="text-sm text-[#cfc9bb]">Name</label>
                     <Input
                       value={profileSettings.name}
                       onChange={(e) => setProfileSettings(prev => ({ ...prev, name: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-stone-600">Email</label>
+                    <label className="text-sm text-[#cfc9bb]">Email</label>
                     <Input
                       type="email"
                       value={profileSettings.email}
                       onChange={(e) => setProfileSettings(prev => ({ ...prev, email: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-stone-600">Phone</label>
+                    <label className="text-sm text-[#cfc9bb]">Phone</label>
                     <Input
                       value={profileSettings.phone}
                       onChange={(e) => setProfileSettings(prev => ({ ...prev, phone: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
-                  <Button className="rounded-xl" onClick={handleSaveSettings}>Save Profile</Button>
+                  <Button className="rounded-xl bg-[#c9a35d] text-[#2a3429] hover:bg-[#b8934d]" onClick={handleSaveSettings}>
+                    Save Profile
+                  </Button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h3 className="text-xl mb-4">Security</h3>
+              <div className="bg-[#2f3a32]/90 rounded-3xl p-6 shadow-sm border border-[#5b6659]">
+                <h3 className="text-xl mb-4 text-[#efece6]">Security</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-stone-600">Current Password</label>
+                    <label className="text-sm text-[#cfc9bb]">Current Password</label>
                     <Input
                       type="password"
                       value={securityForm.currentPassword}
                       onChange={(e) => setSecurityForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-stone-600">New Password</label>
+                    <label className="text-sm text-[#cfc9bb]">New Password</label>
                     <Input
                       type="password"
                       value={securityForm.newPassword}
                       onChange={(e) => setSecurityForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-stone-600">Confirm Password</label>
+                    <label className="text-sm text-[#cfc9bb]">Confirm Password</label>
                     <Input
                       type="password"
                       value={securityForm.confirmPassword}
                       onChange={(e) => setSecurityForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
                   {securityError && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    <div className="rounded-xl border border-rose-300/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
                       {securityError}
                     </div>
                   )}
-                  <Button className="rounded-xl" onClick={handleSecuritySave}>Update Password</Button>
+                  <Button className="rounded-xl bg-[#c9a35d] text-[#2a3429] hover:bg-[#b8934d]" onClick={handleSecuritySave}>
+                    Update Password
+                  </Button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h3 className="text-xl mb-4">Hotel Info</h3>
+              <div className="bg-[#2f3a32]/90 rounded-3xl p-6 shadow-sm border border-[#5b6659]">
+                <h3 className="text-xl mb-4 text-[#efece6]">Hotel Info</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-stone-600">Hotel Name</label>
+                    <label className="text-sm text-[#cfc9bb]">Hotel Name</label>
                     <Input
                       value={hotelSettings.name}
                       onChange={(e) => setHotelSettings(prev => ({ ...prev, name: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-stone-600">Address</label>
+                    <label className="text-sm text-[#cfc9bb]">Address</label>
                     <Input
                       value={hotelSettings.address}
                       onChange={(e) => setHotelSettings(prev => ({ ...prev, address: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm text-stone-600">Phone</label>
+                      <label className="text-sm text-[#cfc9bb]">Phone</label>
                       <Input
                         value={hotelSettings.phone}
                         onChange={(e) => setHotelSettings(prev => ({ ...prev, phone: e.target.value }))}
-                        className="mt-1"
+                        className={settingsInputClass}
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-stone-600">Email</label>
+                      <label className="text-sm text-[#cfc9bb]">Email</label>
                       <Input
                         type="email"
                         value={hotelSettings.email}
                         onChange={(e) => setHotelSettings(prev => ({ ...prev, email: e.target.value }))}
-                        className="mt-1"
+                        className={settingsInputClass}
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm text-stone-600">Check-in Time</label>
+                      <label className="text-sm text-[#cfc9bb]">Check-in Time</label>
                       <Input
                         type="time"
                         value={hotelSettings.checkInTime}
                         onChange={(e) => setHotelSettings(prev => ({ ...prev, checkInTime: e.target.value }))}
-                        className="mt-1"
+                        className={settingsInputClass}
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-stone-600">Check-out Time</label>
+                      <label className="text-sm text-[#cfc9bb]">Check-out Time</label>
                       <Input
                         type="time"
                         value={hotelSettings.checkOutTime}
                         onChange={(e) => setHotelSettings(prev => ({ ...prev, checkOutTime: e.target.value }))}
-                        className="mt-1"
+                        className={settingsInputClass}
                       />
                     </div>
                   </div>
-                  <Button className="rounded-xl" onClick={handleSaveSettings}>Save Hotel Info</Button>
+                  <Button className="rounded-xl bg-[#c9a35d] text-[#2a3429] hover:bg-[#b8934d]" onClick={handleSaveSettings}>
+                    Save Hotel Info
+                  </Button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h3 className="text-xl mb-4">Billing & Payments</h3>
+              <div className="bg-[#2f3a32]/90 rounded-3xl p-6 shadow-sm border border-[#5b6659]">
+                <h3 className="text-xl mb-4 text-[#efece6]">Billing & Payments</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-stone-600">Razorpay Key ID</label>
+                    <label className="text-sm text-[#cfc9bb]">Razorpay Key ID</label>
                     <Input
                       value={billingSettings.razorpayKeyId}
                       onChange={(e) => setBillingSettings(prev => ({ ...prev, razorpayKeyId: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-stone-600">Payout Account</label>
+                    <label className="text-sm text-[#cfc9bb]">Payout Account</label>
                     <Input
                       value={billingSettings.payoutAccount}
                       onChange={(e) => setBillingSettings(prev => ({ ...prev, payoutAccount: e.target.value }))}
-                      className="mt-1"
+                      className={settingsInputClass}
                     />
                   </div>
-                  <Button className="rounded-xl" onClick={handleSaveSettings}>Save Billing</Button>
+                  <Button className="rounded-xl bg-[#c9a35d] text-[#2a3429] hover:bg-[#b8934d]" onClick={handleSaveSettings}>
+                    Save Billing
+                  </Button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h3 className="text-xl mb-4">Theme & Branding</h3>
+              <div className="bg-[#2f3a32]/90 rounded-3xl p-6 shadow-sm border border-[#5b6659]">
+                <h3 className="text-xl mb-4 text-[#efece6]">Theme & Branding</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-stone-600">Logo URL</label>
+                    <label className="text-sm text-[#cfc9bb]">Upload Logo</label>
                     <Input
-                      value={brandingSettings.logoUrl}
-                      onChange={(e) => setBrandingSettings(prev => ({ ...prev, logoUrl: e.target.value }))}
-                      className="mt-1"
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={(e) => setBrandingLogoFile(e.target.files?.[0] || null)}
+                      className={settingsInputClass}
                     />
+                    {brandingLogoFile && (
+                      <p className="mt-2 text-xs text-[#cfc9bb]">Selected: {brandingLogoFile.name}</p>
+                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm text-stone-600">Primary Color</label>
+                      <label className="text-sm text-[#cfc9bb]">Primary Color</label>
                       <Input
                         type="color"
                         value={brandingSettings.primaryColor}
                         onChange={(e) => setBrandingSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
-                        className="mt-1 h-12"
+                        className={`${settingsInputClass} h-12 p-1`}
                       />
                     </div>
                     <div>
-                      <label className="text-sm text-stone-600">Accent Color</label>
+                      <label className="text-sm text-[#cfc9bb]">Accent Color</label>
                       <Input
                         type="color"
                         value={brandingSettings.accentColor}
                         onChange={(e) => setBrandingSettings(prev => ({ ...prev, accentColor: e.target.value }))}
-                        className="mt-1 h-12"
+                        className={`${settingsInputClass} h-12 p-1`}
                       />
                     </div>
                   </div>
-                  <Button className="rounded-xl" onClick={handleSaveSettings}>Save Branding</Button>
+                  <Button className="rounded-xl bg-[#c9a35d] text-[#2a3429] hover:bg-[#b8934d]" onClick={handleSaveSettings}>
+                    Save Branding
+                  </Button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h3 className="text-xl mb-4">Maintenance Mode</h3>
+              <div className="bg-[#2f3a32]/90 rounded-3xl p-6 shadow-sm border border-[#5b6659]">
+                <h3 className="text-xl mb-4 text-[#efece6]">Maintenance Mode</h3>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between rounded-2xl border border-stone-200 px-4 py-3">
+                  <div className="flex items-center justify-between rounded-2xl border border-[#5b6659] px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium">Enable maintenance banner</p>
-                      <p className="text-xs text-stone-500">Show a site-wide notice for guests.</p>
+                      <p className="text-sm font-medium text-[#efece6]">Enable maintenance banner</p>
+                      <p className="text-xs text-[#cfc9bb]">Show a site-wide notice for guests.</p>
                     </div>
                     <input
                       type="checkbox"
@@ -3045,7 +3728,7 @@ const AdminDashboard = () => {
                       className="h-5 w-5 accent-stone-700"
                     />
                   </div>
-                  <Button className="rounded-xl" onClick={handleSaveSettings}>
+                  <Button className="rounded-xl bg-[#c9a35d] text-[#2a3429] hover:bg-[#b8934d]" onClick={handleSaveSettings}>
                     {maintenanceEnabled ? 'Save & Enable' : 'Save & Disable'}
                   </Button>
                 </div>
@@ -3053,6 +3736,7 @@ const AdminDashboard = () => {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

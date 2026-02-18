@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, Lock, Clock, Smartphone, Building2, CreditCard } from 'lucide-react';
+import { X, Lock, CreditCard } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { useBooking } from '../context/BookingContext';
 import { toast } from 'sonner';
 import type { Room } from '../types/room';
 
-// Razorpay integration
 declare global {
   interface Window {
     Razorpay?: any;
@@ -17,7 +17,7 @@ const Payment = () => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
   const { bookings, refreshBookings } = useBooking();
-  const booking = bookings.find(b => b.id === bookingId);
+  const booking = bookings.find((b) => b.id === bookingId);
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
   const [room, setRoom] = useState<Room | null>(null);
@@ -44,26 +44,27 @@ const Payment = () => {
     }
   };
 
-  const loadRazorpayScript = () => new Promise<boolean>((resolve) => {
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
+  const loadRazorpayScript = () =>
+    new Promise<boolean>((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
 
-    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
-    if (existing) {
-      existing.addEventListener('load', () => resolve(true));
-      existing.addEventListener('error', () => resolve(false));
-      return;
-    }
+      const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve(true));
+        existing.addEventListener('error', () => resolve(false));
+        return;
+      }
 
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
 
   useEffect(() => {
     refreshBookings().catch(() => {
@@ -122,17 +123,10 @@ const Payment = () => {
     await handlePaymentWithMethod();
   };
 
-  // Handle UPI Payment
   const handleUPIPayment = async () => {
     await handlePaymentWithMethod('upi');
   };
 
-  // Handle Net Banking Payment
-  const handleNetBankingPayment = async () => {
-    await handlePaymentWithMethod('netbanking');
-  };
-
-  // Generic payment handler with method preference
   const handlePaymentWithMethod = async (method?: string) => {
     setProcessing(true);
 
@@ -242,11 +236,8 @@ const Payment = () => {
         },
       };
 
-      // Add method preference if specified
       if (method === 'upi') {
         options.method = { upi: true };
-      } else if (method === 'netbanking') {
-        options.method = { netbanking: true };
       }
 
       const razorpay = new window.Razorpay(options);
@@ -264,7 +255,6 @@ const Payment = () => {
     }
   };
 
-  // Handle Pay at Check-in option
   const handlePayAtCheckIn = () => {
     toast.success('Booking confirmed! Payment will be collected at check-in.');
     setTimeout(() => {
@@ -273,218 +263,204 @@ const Payment = () => {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 py-8">
-      <div className="max-w-5xl mx-auto px-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate(-1)}
-          className="mb-6"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
+    <div className="min-h-screen bg-[#3f4a40] text-[#efece6] pt-10">
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-[#3f4a40]"/>
+        <div className="absolute inset-0 opacity-20 bg-[linear-gradient(90deg,rgba(235,230,220,0.08)_1px,transparent_1px)] bg-[size:220px_100%]" />
 
-        <div className="mb-8">
-          <h1 className="text-4xl mb-2">Payment</h1>
-          <p className="text-stone-600">Choose your payment method</p>
-        </div>
+        <div className="relative max-w-6xl mx-auto px-4 py-12">
+          <div className="rounded-[2rem] border border-[#4b5246] bg-[#3a4035]/95 shadow-2xl overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-b border-[#4b5246]">
+              <div className="flex flex-wrap items-center gap-4 text-[11px] uppercase tracking-[0.25em] text-[#c9c3b6]">
+                {['Select Dates & Guests', 'Choose Your Room', 'Guest Information', 'Payment'].map((label, index) => {
+                  const step = index + 1;
+                  const isActive = step === 4;
+                  const isComplete = step < 4;
+                  return (
+                    <div key={label} className="flex items-center gap-3">
+                      <div
+                        className={`h-7 w-7 rounded-full border text-xs flex items-center justify-center ${
+                          isActive
+                            ? 'border-[#d7d0bf] text-[#1f241f] bg-[#d7d0bf]'
+                            : isComplete
+                            ? 'border-[#9aa191] text-[#9aa191]'
+                            : 'border-[#5b6255] text-[#c9c3b6]'
+                        }`}
+                      >
+                        {isComplete ? 'OK' : step}
+                      </div>
+                      <span className={isActive ? 'text-[#efece6]' : ''}>{label}</span>
+                      {step < 4 && <span className="h-px w-8 bg-[#5b6255]" />}
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="h-9 w-9 rounded-full border border-[#5b6255] text-[#d7d0bf] hover:bg-white/10 flex items-center justify-center"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Payment Options */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-3xl p-8 shadow-sm">
-              <h2 className="text-2xl mb-6">Complete Payment</h2>
-
-              {isPaymentLocked && (
-                <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  {paymentLockMessage}
+            <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 p-6 lg:p-8">
+              <div>
+                <div className="mb-6">
+                  <h1 className="text-2xl sm:text-3xl text-[#efece6]">Payment</h1>
+                  <div className="h-px w-20 bg-[#5b6255] mt-3" />
                 </div>
-              )}
 
-              <div className="space-y-4">
-                {/* Credit/Debit Card Payment */}
-                <div className="bg-stone-50 border-2 border-stone-200 rounded-2xl p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-stone-700 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <CreditCard className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold mb-2">Credit / Debit Card</h3>
-                      <p className="text-sm text-stone-600 mb-3">
-                        Pay securely using your credit or debit card via Razorpay.
-                      </p>
-                      <form onSubmit={handlePayment}>
-                        <Button
-                          type="submit"
-                          className="w-full h-12 rounded-xl text-base bg-stone-700 hover:bg-stone-800"
-                          disabled={processing || isPaymentLocked}
-                        >
-                          {processing ? (
-                            <>Processing...</>
-                          ) : isPaymentLocked ? (
-                            <>Awaiting ID Approval</>
-                          ) : (
-                            <>
-                              <CreditCard className="w-5 h-5 mr-2" />
-                              Pay ${booking.totalPrice.toFixed(2)}
-                            </>
-                          )}
-                        </Button>
-                      </form>
-                    </div>
+                {isPaymentLocked && (
+                  <div className="mb-6 rounded-xl border border-amber-200 bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
+                    {paymentLockMessage}
                   </div>
-                </div>
+                )}
 
-                {/* UPI Payment */}
-                <div className="bg-stone-50 border-2 border-stone-200 rounded-2xl p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-stone-700 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Smartphone className="w-6 h-6 text-white" />
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-[#4b5246] bg-[#343a30] px-5 py-4">
+                    <div className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6] mb-2">One-click book</div>
+                    <Button
+                      onClick={handleUPIPayment}
+                      className="w-full rounded-xl border border-[#5b6255] bg-[#d7d0bf] text-[#1f241f] hover:bg-[#e5ddca]"
+                      disabled={processing || isPaymentLocked}
+                    >
+                      {processing ? 'Processing...' : 'Book with GPay'}
+                    </Button>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#4b5246] bg-[#343a30] px-5 py-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">Pay with credit card</div>
+                        <p className="text-sm text-[#9aa191] mt-1">Secure payment powered by Razorpay.</p>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-[#c9c3b6]">
+                        <Lock className="w-4 h-4" />
+                        SSL secured
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold mb-2">UPI</h3>
-                      <p className="text-sm text-stone-600 mb-3">
-                        Pay instantly using Google Pay, PhonePe, Paytm, or any UPI app.
-                      </p>
+
+                    <form onSubmit={handlePayment} className="space-y-3">
+                      <div>
+                        <label className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">Card holder name</label>
+                        <Input
+                          placeholder="Card holder name"
+                          className="mt-2 h-11 rounded-xl bg-[#2f352b] border-[#4b5246] text-[#efece6] placeholder:text-[#9aa191]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">Card number</label>
+                        <Input
+                          placeholder="Card number"
+                          className="mt-2 h-11 rounded-xl bg-[#2f352b] border-[#4b5246] text-[#efece6] placeholder:text-[#9aa191]"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">Expiration date</label>
+                          <Input
+                            placeholder="MM/YY"
+                            className="mt-2 h-11 rounded-xl bg-[#2f352b] border-[#4b5246] text-[#efece6] placeholder:text-[#9aa191]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">CVC</label>
+                          <Input
+                            placeholder="CVC"
+                            className="mt-2 h-11 rounded-xl bg-[#2f352b] border-[#4b5246] text-[#efece6] placeholder:text-[#9aa191]"
+                          />
+                        </div>
+                      </div>
                       <Button
-                        onClick={handleUPIPayment}
-                        className="w-full h-12 rounded-xl text-base bg-stone-700 hover:bg-stone-800"
+                        type="submit"
+                        className="w-full rounded-xl border border-[#5b6255] bg-[#d7d0bf] text-[#1f241f] hover:bg-[#e5ddca]"
                         disabled={processing || isPaymentLocked}
                       >
-                        {processing ? (
-                          <>Processing...</>
-                        ) : isPaymentLocked ? (
-                          <>Awaiting ID Approval</>
-                        ) : (
-                          <>
-                            <Smartphone className="w-5 h-5 mr-2" />
-                            Pay ${booking.totalPrice.toFixed(2)} via UPI
-                          </>
-                        )}
+                        {processing ? 'Processing...' : 'Confirm Reservation'}
+                        <CreditCard className="w-4 h-4 ml-2" />
                       </Button>
-                    </div>
+                    </form>
                   </div>
-                </div>
 
-                {/* Net Banking Payment */}
-                <div className="bg-stone-50 border-2 border-stone-200 rounded-2xl p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-stone-700 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Building2 className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold mb-2">Net Banking</h3>
-                      <p className="text-sm text-stone-600 mb-3">
-                        Pay directly from your bank account. Supports all major Indian banks.
-                      </p>
-                      <Button
-                        onClick={handleNetBankingPayment}
-                        className="w-full h-12 rounded-xl text-base bg-stone-700 hover:bg-stone-800"
-                        disabled={processing || isPaymentLocked}
-                      >
-                        {processing ? (
-                          <>Processing...</>
-                        ) : isPaymentLocked ? (
-                          <>Awaiting ID Approval</>
-                        ) : (
-                          <>
-                            <Building2 className="w-5 h-5 mr-2" />
-                            Pay ${booking.totalPrice.toFixed(2)} via Net Banking
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Pay at Check-in Option */}
-                <div className="bg-stone-50 border-2 border-stone-200 rounded-2xl p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-stone-700 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Clock className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold mb-2">Pay at Check-in</h3>
-                      <p className="text-sm text-stone-600 mb-3">
-                        Reserve your room now and complete payment when you arrive at the hotel.
-                      </p>
-                      <ul className="text-sm text-stone-600 space-y-1.5 mb-4">
-                        <li className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-stone-600 rounded-full"></span>
-                          No payment required now
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-stone-600 rounded-full"></span>
-                          Pay in cash or card at hotel
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-stone-600 rounded-full"></span>
-                          Free cancellation (24 hours notice)
-                        </li>
-                      </ul>
-                      <Button
-                        onClick={handlePayAtCheckIn}
-                        variant="outline"
-                        className="w-full h-12 rounded-xl text-base"
-                        disabled={isPaymentLocked}
-                      >
-                        <Clock className="w-5 h-5 mr-2" />
-                        Confirm Booking
-                      </Button>
-                    </div>
+                  <div className="rounded-2xl border border-[#4b5246] bg-[#2f352b] px-5 py-4 text-xs text-[#c9c3b6]">
+                    Cancellation policy: Bookings are charged the total price upon confirmation.
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-2 text-sm text-stone-600 mt-6">
-                <Lock className="w-4 h-4" />
-                <span>Secure payment powered by 256-bit SSL encryption</span>
+              <div className="rounded-2xl border border-[#4b5246] bg-[#343a30] p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm uppercase tracking-[0.2em] text-[#c9c3b6]">Stay details</h3>
+                  <span className="text-xs text-[#c9c3b6]">${booking.totalPrice.toFixed(2)}</span>
+                </div>
+                <div className="space-y-2 text-sm text-[#d7d0bf]">
+                  <div className="flex justify-between">
+                    <span>Arrive</span>
+                    <span>{new Date(booking.checkIn).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Depart</span>
+                    <span>{new Date(booking.checkOut).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Nights</span>
+                    <span>{Math.max(1, Math.round((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / 86400000))}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Guests</span>
+                    <span>{booking.guests}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Room Type</span>
+                    <span>{room?.type || 'Suite'}</span>
+                  </div>
+                </div>
+
+                {roomLoadError && (
+                  <div className="mt-4 rounded-xl border border-red-200 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                    {roomLoadError}
+                  </div>
+                )}
+
+                <div className="mt-4 pt-4 border-t border-[#4b5246]">
+                  <label className="text-xs uppercase tracking-[0.2em] text-[#c9c3b6]">Coupon</label>
+                  <Input
+                    placeholder="Enter coupon code"
+                    className="mt-2 h-11 rounded-xl bg-[#2f352b] border-[#4b5246] text-[#efece6] placeholder:text-[#9aa191]"
+                  />
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-[#4b5246] text-sm text-[#d7d0bf] space-y-2">
+                  <div className="flex justify-between">
+                    <span>Grand Total</span>
+                    <span>${booking.totalPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Due Now</span>
+                    <span>${booking.totalPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Due at Hotel</span>
+                    <span>$0.00</span>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-5 w-full rounded-xl border-[#5b6255] text-[#d7d0bf] hover:bg-white/10"
+                  onClick={handlePayAtCheckIn}
+                  disabled={processing}
+                >
+                  Pay at Check-in
+                </Button>
               </div>
             </div>
           </div>
-
-          {/* Payment Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-3xl p-6 shadow-lg sticky top-4">
-              <h3 className="text-xl mb-6">Payment Summary</h3>
-
-              {room && (
-                <>
-                  <div className="mb-6">
-                    <h4 className="mb-1">{room.name}</h4>
-                    <p className="text-stone-600 text-sm">{room.type} Room</p>
-                  </div>
-
-                  <div className="space-y-3 mb-6 pb-6 border-b border-stone-200">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Room Charges</span>
-                      <span>${booking.roomPrice.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Taxes</span>
-                      <span>${booking.taxes.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-600">Service Charges</span>
-                      <span>${booking.serviceCharges.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg">Amount to Pay</span>
-                    <span className="text-3xl">${booking.totalPrice.toFixed(2)}</span>
-                  </div>
-                </>
-              )}
-              {!room && roomLoadError && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {roomLoadError}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

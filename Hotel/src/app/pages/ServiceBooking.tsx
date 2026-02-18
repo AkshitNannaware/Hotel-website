@@ -13,6 +13,7 @@ type Service = {
   category: 'dining' | 'restaurant' | 'spa' | 'bar';
   description: string;
   image: string;
+  video: string;
   priceRange: string;
   availableTimes: string[];
 };
@@ -30,6 +31,25 @@ const ServiceBooking = () => {
   const resolveImageUrl = (imageUrl: string) => {
     if (!imageUrl) return '';
     const trimmed = imageUrl.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('/uploads/')) {
+      return `${API_BASE}${trimmed}`;
+    }
+    if (trimmed.startsWith('uploads/')) {
+      return `${API_BASE}/${trimmed}`;
+    }
+    if (trimmed.startsWith('/')) {
+      return `${API_BASE}${trimmed}`;
+    }
+    return `${API_BASE}/${trimmed}`;
+  };
+
+  const resolveVideoUrl = (videoUrl: string) => {
+    if (!videoUrl) return '';
+    const trimmed = videoUrl.trim();
     if (!trimmed) return '';
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
@@ -73,6 +93,7 @@ const ServiceBooking = () => {
           category: String(data.category || '').toLowerCase(),
           description: data.description || '',
           image: data.image || '',
+          video: data.video || '',
           priceRange: data.priceRange || '',
           availableTimes: data.availableTimes || [],
         });
@@ -204,7 +225,7 @@ const ServiceBooking = () => {
                 <div className="text-stone-600">{service.description}</div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <div>
                   <div className="text-sm text-stone-600 mb-1">Date</div>
                   <div className="text-lg">{new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
@@ -215,7 +236,7 @@ const ServiceBooking = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <div>
                   <div className="text-sm text-stone-600 mb-1">Number of Guests</div>
                   <div className="text-lg">{guests}</div>
@@ -364,7 +385,17 @@ const ServiceBooking = () => {
               <h3 className="text-xl mb-6">Service Details</h3>
 
               <div className="mb-6">
-                {resolveImageUrl(service.image) ? (
+                {resolveVideoUrl(service.video) ? (
+                  <video
+                    src={resolveVideoUrl(service.video)}
+                    poster={resolveImageUrl(service.image) || undefined}
+                    className="w-full h-48 object-cover rounded-2xl"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  />
+                ) : resolveImageUrl(service.image) ? (
                   <img
                     src={resolveImageUrl(service.image)}
                     alt={service.name}
